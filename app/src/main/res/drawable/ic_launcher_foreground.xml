@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Play dourado com controles deslizantes (108x108, área segura central 66x66) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- triângulo de play -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M40,32 L40,76 L74,54 Z" />
+    <!-- trilhos dos sliders -->
+    <path
+        android:fillColor="#C0C0C8"
+        android:pathData="M30,36h4v36h-4z" />
+    <path
+        android:fillColor="#C0C0C8"
+        android:pathData="M78,36h4v36h-4z" />
+    <!-- botões dos sliders -->
+    <path
+        android:fillColor="#F2D27A"
+        android:pathData="M27,46h10v6h-10z" />
+    <path
+        android:fillColor="#F2D27A"
+        android:pathData="M75,58h10v6h-10z" />
+</vector>

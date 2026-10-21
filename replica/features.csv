@@ -1,0 +1,40 @@
+id,tela,funcao,prioridade,status
+F01,Geral,Barra inferior com 3 abas (Início / Buscar / Biblioteca),must,todo
+F02,Geral,Mini player acima da barra com progresso e deslizar para trocar faixa,must,todo
+F03,Tocando agora,Capa grande com fundo em degradê da cor da capa,must,todo
+F04,Tocando agora,Controles fixos: aleatório / anterior / play / próxima / repetir,must,todo
+F05,Tocando agora,Botão curtir,must,todo
+F06,Tocando agora,Cartão de letra ao rolar + letra em tela cheia sincronizada,should,todo
+F07,Fila,Fila com Próximas na fila e Próximas de <origem>; arrastar e remover,must,todo
+F08,Biblioteca,Chips Playlists / Artistas / Álbuns,must,todo
+F09,Biblioteca,Ordenar (recentes / adicionados / A-Z) e alternar lista ou grade,must,todo
+F10,Biblioteca,Fixar itens no topo,should,todo
+F11,Biblioteca,Músicas Curtidas como playlist automática,must,todo
+F12,Playlist,Criar / renomear / excluir playlist,must,todo
+F13,Playlist,Capa automática em mosaico de 4 capas,should,todo
+F14,Playlist / Álbum,Cabeçalho com degradê + play + aleatório,must,todo
+F15,Artista,Página do artista com mais tocadas e álbuns,should,todo
+F16,Buscar,Busca instantânea agrupada (músicas / artistas / álbuns / playlists),must,todo
+F17,Buscar,Blocos coloridos por gênero,could,todo
+F18,Geral,Menu de contexto da faixa (fila / playlist / álbum / artista / curtir),must,todo
+F19,Início,Grade de atalhos recentes,should,todo
+F20,Início,Carrosséis: Tocadas recentemente / Mais tocadas / Redescubra,should,todo
+F21,Início,Mixes do dia gerados por gênero e BPM a partir do histórico local,could,todo
+F22,Config,Timer de soneca,should,todo
+F23,Config,Volume normalizado,should,todo
+F24,Geral,Restaurar fila e posição ao reabrir o app,must,todo
+F25,Geral,Notificação e tela de bloqueio com controles e capa,must,todo
+F26,Geral,Widget na tela inicial,could,todo
+F27,Geral,Android Auto,could,todo
+F28,Geral,Biblioteca alimentada pelos arquivos do celular (pasta),must,todo
+M01,Melhoria,Aleatório de verdade (nova ordem a cada vez; espalha artistas; sem repetir até tocar tudo),must,todo
+M02,Melhoria,Início só com as músicas do usuário: sem anúncio nem conteúdo empurrado,must,todo
+M03,Melhoria,Rolagem rápida A-Z na lateral da biblioteca,should,todo
+M04,Melhoria,Formatos locais amplos (MP3 FLAC M4A OGG WAV OPUS) e nova varredura automática,must,todo
+M05,Melhoria,Letras sempre liberadas,must,todo
+M06,Melhoria,Transição sem cortes e sem falhas também em arquivos locais,must,todo
+X01,Fora,Catálogo de streaming,could,fora
+X02,Fora,Podcasts e audiolivros,could,fora
+X03,Fora,Jam / mensagens / atividade de amigos,could,fora
+X04,Fora,Vídeos e Canvas,could,fora
+X05,Fora,DJ com voz de IA,could,fora
