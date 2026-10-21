@@ -125,6 +125,7 @@ class LibraryStore(context: Context) {
             put("excluded", JSONArray(d.settings.excludedFolders.toList()))
             put("grid", d.settings.gridMode)
             put("sort", d.settings.sort.name)
+            put("autoEq", d.settings.autoEq)
         })
     }
 
@@ -162,6 +163,7 @@ class LibraryStore(context: Context) {
             excludedFolders = s.optJSONArray("excluded").strings().toSet(),
             gridMode = s.optBoolean("grid", false),
             sort = runCatching { LibrarySort.valueOf(s.optString("sort")) }.getOrDefault(LibrarySort.RECENT),
+            autoEq = s.optBoolean("autoEq", true),
         )
         return LibraryData(liked, playlists, pinned, stats, recent, settings)
     }

@@ -19,6 +19,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -83,7 +86,28 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
             }
         }
         item {
-            SettingRow(Icons.Filled.Equalizer, "Equalizador", "Abre o equalizador do sistema") {
+            Row(
+                Modifier.fillMaxWidth().clickable { vm.updateSettings { s -> s.copy(autoEq = !s.autoEq) } }
+                    .padding(horizontal = PM.s4, vertical = PM.s3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.GraphicEq, null, tint = PM.Gold)
+                Spacer(Modifier.width(PM.s4))
+                Column(Modifier.weight(1f)) {
+                    Text("Equalizador automático", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Ajusta o som sozinho ao gênero da música que está tocando (sertanejo, funk, rock, eletrônica…). Sem gênero no arquivo, usa uma curva equilibrada.",
+                        style = MaterialTheme.typography.bodyMedium, color = PM.TextDim,
+                    )
+                }
+                Switch(
+                    checked = data.settings.autoEq, onCheckedChange = { on -> vm.updateSettings { s -> s.copy(autoEq = on) } },
+                    colors = SwitchDefaults.colors(checkedThumbColor = PM.Black, checkedTrackColor = PM.Gold),
+                )
+            }
+        }
+        item {
+            SettingRow(Icons.Filled.Equalizer, "Equalizador do sistema", "Ajuste manual do aparelho (desligue o automático para usar só ele)") {
                 val i = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
                     putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
                     putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)

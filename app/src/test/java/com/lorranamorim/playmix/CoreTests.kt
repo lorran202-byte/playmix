@@ -66,4 +66,26 @@ class CoreTests {
         assertEquals("Song", LyricsRepository.cleanTitle("Song - Remastered 2011"))
         assertEquals("Normal", LyricsRepository.cleanTitle("Normal"))
     }
+
+    @Test
+    fun picksEqByGenre() {
+        val eq = com.lorranamorim.playmix.playback.EqPresets
+        assertEquals("Sertanejo", eq.forGenre("Sertanejo Universitário").name)
+        assertEquals("Funk", eq.forGenre("Funk Carioca").name)
+        assertEquals("Forró", eq.forGenre("Forró / Piseiro").name)
+        assertEquals("Rock", eq.forGenre("Pop Rock").name)
+        assertEquals("Eletrônica", eq.forGenre("Dance").name)
+        assertEquals("Pop", eq.forGenre("Pop").name)
+        assertEquals("Equilibrado", eq.forGenre(null).name)
+        assertEquals("Equilibrado", eq.forGenre("Desconhecido").name)
+    }
+
+    @Test
+    fun eqCurveInterpolates() {
+        val p = com.lorranamorim.playmix.playback.EqPresets.forGenre("funk")
+        assertEquals(5.5f, p.gainAt(30f), 0.01f)
+        assertEquals(2.5f, p.gainAt(16000f), 0.01f)
+        val mid = p.gainAt(120f)
+        assertTrue(mid < 5.5f && mid > 3.5f)
+    }
 }

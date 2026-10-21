@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
@@ -72,6 +73,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -195,54 +199,75 @@ fun NowPlayingScreen(
 
     BackHandler(enabled = showLyrics) { showLyrics = false }
 
+    val screenH = LocalConfiguration.current.screenHeightDp.dp
+    val eqName by vm.eqPreset.collectAsStateWithLifecycle()
+
     Box(
         Modifier.fillMaxSize()
             .background(PM.Bg)
-            .background(Brush.verticalGradient(listOf(color.copy(alpha = 0.75f), color.copy(alpha = 0.25f), PM.Bg)))
+            .background(Brush.verticalGradient(0f to color, 0.55f to color, 1f to PM.Bg))
             .pointerInput(Unit) { detectTapGestures { } },
     ) {
         Column(
-            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().navigationBarsPadding().verticalScroll(rememberScrollState()),
         ) {
-            // topo
-            Row(Modifier.fillMaxWidth().padding(horizontal = PM.s2), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onCollapse) { Icon(Icons.Filled.KeyboardArrowDown, "Minimizar", tint = PM.Text, modifier = Modifier.size(32.dp)) }
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("TOCANDO DE", style = MaterialTheme.typography.labelMedium, color = PM.TextDim, letterSpacing = 1.5.sp)
-                    Text(
-                        player.contextTitle.ifBlank { "Sua biblioteca" },
-                        style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                IconButton(onClick = { track?.let(onTrackMenu) }, enabled = track != null) {
-                    Icon(Icons.Filled.MoreVert, "Mais opções", tint = PM.Text)
-                }
-            }
+            // capa imersiva: metade da tela, de ponta a ponta, sumindo num degradê
+            Box(Modifier.fillMaxWidth().height(screenH * 0.5f)) {
+                Cover(
+                    item.mediaMetadata.artworkUri,
+                    Modifier.fillMaxSize(),
+                    RectangleShape,
+                    seed = item.mediaMetadata.albumTitle?.toString() ?: "",
+                )
+                // sombra no topo para os botões aparecerem sobre qualquer capa
+                Box(
+                    Modifier.fillMaxWidth().height(150.dp)
+                        .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))),
+                )
+                // degradê na parte de baixo da capa
+                Box(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.55f)
+                        .background(Brush.verticalGradient(0f to Color.Transparent, 0.55f to color.copy(alpha = 0.75f), 1f to color)),
+                )
 
-            // capa
-            Cover(
-                item.mediaMetadata.artworkUri,
-                Modifier.padding(horizontal = PM.s6, vertical = PM.s6).fillMaxWidth().aspectRatio(1f),
-                RoundedCornerShape(10.dp),
-                seed = item.mediaMetadata.albumTitle?.toString() ?: "",
-            )
-
-            // título + curtir
-            Row(Modifier.fillMaxWidth().padding(horizontal = PM.s6), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(item.titleText, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        item.artistText, style = MaterialTheme.typography.bodyLarge, color = PM.TextDim, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable(enabled = track != null) {
-                            track?.let { onOpen(PlayContext(ContextType.ARTIST, it.artist, it.artist)) }
-                        },
-                    )
+                // topo
+                Row(
+                    Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = PM.s2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = onCollapse) { Icon(Icons.Filled.KeyboardArrowDown, "Minimizar", tint = PM.Text, modifier = Modifier.size(32.dp)) }
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("TOCANDO DE", style = MaterialTheme.typography.labelMedium, color = PM.Text.copy(alpha = 0.75f), letterSpacing = 1.5.sp)
+                        Text(
+                            player.contextTitle.ifBlank { "Sua biblioteca" },
+                            style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    IconButton(onClick = { track?.let(onTrackMenu) }, enabled = track != null) {
+                        Icon(Icons.Filled.MoreVert, "Mais opções", tint = PM.Text)
+                    }
                 }
-                if (track != null) {
-                    val liked = data.liked.contains(track.id)
-                    IconButton(onClick = { vm.toggleLike(track.id) }) {
-                        Icon(if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Curtir", tint = if (liked) PM.Gold else PM.Text, modifier = Modifier.size(28.dp))
+
+                // título + curtir, sobre o degradê
+                Row(
+                    Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = PM.s6, end = PM.s4, bottom = PM.s2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.titleText, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            item.artistText, style = MaterialTheme.typography.bodyLarge, color = PM.Text.copy(alpha = 0.75f), maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable(enabled = track != null) {
+                                track?.let { onOpen(PlayContext(ContextType.ARTIST, it.artist, it.artist)) }
+                            },
+                        )
+                    }
+                    if (track != null) {
+                        val liked = data.liked.contains(track.id)
+                        IconButton(onClick = { vm.toggleLike(track.id) }) {
+                            Icon(if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Curtir", tint = if (liked) PM.Gold else PM.Text, modifier = Modifier.size(28.dp))
+                        }
                     }
                 }
             }
@@ -307,6 +332,17 @@ fun NowPlayingScreen(
                     if (sleep != SleepTimer.Off) {
                         Spacer(Modifier.width(6.dp))
                         Text(sleepLabel(sleep), style = MaterialTheme.typography.labelMedium, color = PM.Gold)
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                eqName?.let { name ->
+                    Row(
+                        Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.GraphicEq, null, tint = PM.Gold, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("EQ $name", style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 Spacer(Modifier.weight(1f))

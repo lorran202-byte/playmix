@@ -24,7 +24,8 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private lateinit var player: ExoPlayer
     private val handler = Handler(Looper.getMainLooper())
-    private val store get() = (application as PlayMixApp).container.store
+    private val container get() = (application as PlayMixApp).container
+    private val store get() = container.store
 
     private var fadeInActive = false
     private var pendingRecord = true
@@ -53,6 +54,7 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         player.addListener(listener)
+        container.eq.attach(player.audioSessionId)
 
         val openApp = PendingIntent.getActivity(
             this, 0,
@@ -79,6 +81,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         saveQueue()
         handler.removeCallbacksAndMessages(null)
+        container.eq.release()
         session?.run {
             player.release()
             release()
@@ -108,7 +111,13 @@ class PlaybackService : MediaSessionService() {
                 reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
             pendingRecord = true
             if (player.isPlaying) recordIfPending()
+            applyEqFor(mediaItem)
             scheduleSave()
+        }
+
+        override fun onAudioSessionIdChanged(audioSessionId: Int) {
+            container.eq.attach(audioSessionId)
+            applyEqFor(player.currentMediaItem)
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -131,6 +140,13 @@ class PlaybackService : MediaSessionService() {
                 player.play()
             }
         }
+    }
+
+    /** Ajusta o equalizador ao gênero da música (lido das tags do arquivo). */
+    private fun applyEqFor(item: MediaItem?) {
+        val id = item?.mediaId?.toLongOrNull()
+        val genre = id?.let { container.music.library.value.byId[it]?.genre }
+        container.eq.apply(genre)
     }
 
     private fun recordIfPending() {

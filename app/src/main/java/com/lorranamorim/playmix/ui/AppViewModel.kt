@@ -59,6 +59,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val player: StateFlow<PlayerState> = playerConn.state
     val scanning = music.scanning
     val allFolders = music.allFolders
+    val eqPreset = c.eq.preset
 
     private val _lyrics = MutableStateFlow<LyricsState>(LyricsState.Idle)
     val lyrics: StateFlow<LyricsState> = _lyrics.asStateFlow()
@@ -71,7 +72,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             combine(player.map { it.currentId }.distinctUntilChanged(), library) { id, lib -> id?.let { lib.byId[it] } }
                 .distinctUntilChanged()
-                .collect { track -> loadLyrics(track) }
+                .collect { track ->
+                    loadLyrics(track)
+                    // garante o equalizador certo mesmo se a biblioteca carregou depois da música começar
+                    if (track != null) c.eq.apply(track.genre)
+                }
         }
     }
 
@@ -142,7 +147,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun deletePlaylist(id: String) = store.deletePlaylist(id)
     fun addToPlaylist(id: String, tracks: List<Long>) = store.addToPlaylist(id, tracks)
     fun removeFromPlaylist(id: String, trackId: Long) = store.removeFromPlaylist(id, trackId)
-    fun updateSettings(f: (LibrarySettings) -> LibrarySettings) = store.updateSettings(f)
+    fun updateSettings(f: (LibrarySettings) -> LibrarySettings) {
+        store.updateSettings(f)
+        c.eq.reapply()
+    }
 
     fun retryLyrics() {
         val id = player.value.currentId ?: return

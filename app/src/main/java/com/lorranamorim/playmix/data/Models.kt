@@ -72,6 +72,7 @@ data class LibrarySettings(
     val excludedFolders: Set<String> = emptySet(),
     val gridMode: Boolean = false,
     val sort: LibrarySort = LibrarySort.RECENT,
+    val autoEq: Boolean = true,
 )
 
 enum class LibrarySort(val label: String) {
