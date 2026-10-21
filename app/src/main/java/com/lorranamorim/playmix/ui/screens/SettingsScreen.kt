@@ -76,10 +76,10 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
         item { SectionTitle("Reprodução") }
         item {
             Column(Modifier.padding(horizontal = PM.s4)) {
-                Text("Transição suave entre músicas", style = MaterialTheme.typography.bodyLarge)
+                Text("Crossfade entre músicas", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    if (fade.toInt() == 0) "Desligada: uma música emenda na outra sem silêncio"
-                    else "Abaixa o fim e sobe o começo em ${fade.toInt()} s",
+                    if (fade.toInt() == 0) "Desligado: uma música emenda na outra, cortando o silêncio entre elas"
+                    else "As duas tocam juntas por ${fade.toInt()} s, sem silêncio, e o grave da que sai vai sumindo",
                     style = MaterialTheme.typography.bodyMedium, color = PM.TextDim,
                 )
                 Slider(

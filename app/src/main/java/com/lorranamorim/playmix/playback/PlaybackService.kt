@@ -27,13 +27,26 @@ class PlaybackService : MediaSessionService() {
     private val container get() = (application as PlayMixApp).container
     private val store get() = container.store
 
-    private var fadeInActive = false
     private var pendingRecord = true
+
+    // ---------- crossfade ----------
+    /** Segundo player: toca o fim da música que está saindo enquanto a próxima entra. */
+    private lateinit var tailPlayer: ExoPlayer
+    private var tailEq: android.media.audiofx.Equalizer? = null
+    private lateinit var analyzer: SilenceAnalyzer
+    private val analysisPool = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private enum class XState { IDLE, PREPARED, CROSSING }
+    private var xState = XState.IDLE
+    private var preparedIndex = -1
+    private var preparedAt = 0L
+    private var crossStart = 0L
+    private var crossMs = 0L
+    private var selfSeek = false
 
     private val fadeTick = object : Runnable {
         override fun run() {
-            applyFade()
-            handler.postDelayed(this, 100)
+            runCatching { crossfadeTick() }
+            handler.postDelayed(this, 50)
         }
     }
 
@@ -55,6 +68,15 @@ class PlaybackService : MediaSessionService() {
 
         player.addListener(listener)
         container.eq.attach(player.audioSessionId)
+
+        analyzer = SilenceAnalyzer(this)
+        tailPlayer = ExoPlayer.Builder(this)
+            .setAudioAttributes(
+                AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+                false, // o foco de áudio fica com o player principal
+            )
+            .build()
+        tailEq = runCatching { android.media.audiofx.Equalizer(0, tailPlayer.audioSessionId) }.getOrNull()
 
         val openApp = PendingIntent.getActivity(
             this, 0,
@@ -82,6 +104,9 @@ class PlaybackService : MediaSessionService() {
         saveQueue()
         handler.removeCallbacksAndMessages(null)
         container.eq.release()
+        runCatching { tailEq?.release() }
+        tailPlayer.release()
+        analysisPool.shutdownNow()
         session?.run {
             player.release()
             release()
@@ -107,8 +132,19 @@ class PlaybackService : MediaSessionService() {
 
     private val listener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            fadeInActive = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
-                reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+            if (selfSeek) {
+                selfSeek = false
+            } else {
+                // o usuário trocou de música no meio de um crossfade: encerra na hora
+                if (xState == XState.CROSSING) endCrossfade()
+                resetPrepared()
+                // passagem automática sem crossfade: pula o silêncio do começo
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    val start = mediaItem?.mediaId?.let { analyzer.cached(it) }?.startMs ?: 0L
+                    if (start > 300) player.seekTo(start)
+                }
+            }
+            analyzeAround()
             pendingRecord = true
             if (player.isPlaying) recordIfPending()
             applyEqFor(mediaItem)
@@ -121,7 +157,12 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (isPlaying) recordIfPending() else saveQueue()
+            if (isPlaying) recordIfPending() else {
+                saveQueue()
+                // pausou no meio da transição: termina ela para não ficar som sobrando
+                // (carregando a próxima no meio do crossfade não conta: só pausa de verdade)
+                if (xState == XState.CROSSING && !player.playWhenReady) endCrossfade()
+            }
         }
 
         override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
@@ -156,26 +197,139 @@ class PlaybackService : MediaSessionService() {
         store.recordPlay(id)
     }
 
-    /** Transição suave: abaixa o volume no fim da faixa e sobe no começo da próxima. */
-    private fun applyFade() {
-        if (!player.isPlaying) return
-        val fadeMs = store.data.value.settings.fadeSeconds * 1000L
-        if (fadeMs <= 0) {
-            if (player.volume != 1f) player.volume = 1f
+    // ======================= CROSSFADE =======================
+
+    /** Analisa (uma vez) a música atual e a próxima para saber onde estão os silêncios. */
+    private fun analyzeAround() {
+        val idx = player.currentMediaItemIndex
+        listOf(idx, player.nextMediaItemIndex).filter { it in 0 until player.mediaItemCount }.forEach { i ->
+            val item = player.getMediaItemAt(i)
+            val id = item.mediaId
+            if (analyzer.cached(id) != null) return@forEach
+            val uri = uriForId(id) ?: return@forEach
+            val dur = item.mediaMetadata.extras?.getLong(EXTRA_DURATION) ?: 0L
+            if (dur <= 0) return@forEach
+            runCatching { analysisPool.execute { analyzer.analyze(id, uri, dur) } }
+        }
+    }
+
+    private fun boundsOf(item: MediaItem?, durationMs: Long): AudioBounds =
+        item?.mediaId?.let { analyzer.cached(it) } ?: AudioBounds(0, durationMs)
+
+    private fun crossfadeTick() {
+        if (xState == XState.CROSSING) {
+            val t = ((System.currentTimeMillis() - crossStart).toFloat() / crossMs).coerceIn(0f, 1f)
+            // curva de potência constante: o volume total não "afunda" no meio
+            player.volume = kotlin.math.sin(t * Math.PI / 2).toFloat()
+            tailPlayer.volume = kotlin.math.cos(t * Math.PI / 2).toFloat()
+            bassSwap(t)
+            if (t >= 1f) endCrossfade()
             return
         }
-        val pos = player.currentPosition
+        if (!player.isPlaying) return
+        if (player.volume != 1f) player.volume = 1f
+
         val dur = player.duration
-        var v = 1f
-        if (fadeInActive) {
-            if (pos < fadeMs) v = (pos.toFloat() / fadeMs).coerceIn(0.15f, 1f) else fadeInActive = false
+        if (dur == C.TIME_UNSET || dur <= 0) return
+        val pos = player.currentPosition
+        val bounds = boundsOf(player.currentMediaItem, dur)
+        val end = bounds.endMs.coerceAtMost(dur)
+        val canAdvance = player.hasNextMediaItem() && player.repeatMode != Player.REPEAT_MODE_ONE
+        val cross = store.data.value.settings.fadeSeconds * 1000L
+
+        if (!canAdvance) { resetPrepared(); return }
+
+        if (cross <= 0) {
+            // sem crossfade: emenda direto, cortando o silêncio do fim
+            if (end < dur - 500 && pos >= end) jumpToNext()
+            return
         }
-        val hasFollowing = player.hasNextMediaItem() || player.repeatMode != Player.REPEAT_MODE_OFF
-        if (hasFollowing && dur != C.TIME_UNSET && dur > fadeMs * 2) {
-            val remaining = dur - pos
-            if (remaining < fadeMs) v = minOf(v, (remaining.toFloat() / fadeMs).coerceIn(0.15f, 1f))
+
+        val c = cross.coerceAtMost((end - bounds.startMs) / 3)
+        val triggerAt = end - c
+        if (xState == XState.IDLE && pos >= triggerAt - 4_000 && pos < triggerAt) prepareTail(triggerAt)
+        if (xState == XState.PREPARED && preparedIndex != player.currentMediaItemIndex) resetPrepared()
+        if (pos >= triggerAt && pos < end + 1_000) startCrossfade(c)
+    }
+
+    /** Deixa o fim da música atual pronto no segundo player, sem tocar ainda. */
+    private fun prepareTail(at: Long) {
+        val item = player.currentMediaItem ?: return
+        tailPlayer.setMediaItem(item.buildUpon().setUri(uriForId(item.mediaId)).build(), at)
+        tailPlayer.volume = 0f
+        tailPlayer.playWhenReady = false
+        tailPlayer.prepare()
+        preparedIndex = player.currentMediaItemIndex
+        preparedAt = at
+        xState = XState.PREPARED
+    }
+
+    private fun startCrossfade(c: Long) {
+        val pos = player.currentPosition
+        if (xState != XState.PREPARED) prepareTail(pos)
+        // o segundo player continua a música que está saindo do ponto exato
+        if (kotlin.math.abs(tailPlayer.currentPosition - pos) > 120) tailPlayer.seekTo(pos)
+        tailPlayer.volume = 1f
+        tailPlayer.play()
+        resetBass()
+
+        // o player principal já vai para a próxima, começando depois do silêncio inicial
+        val nextIdx = player.nextMediaItemIndex
+        val nextItem = player.getMediaItemAt(nextIdx)
+        val nextStart = analyzer.cached(nextItem.mediaId)?.startMs ?: 0L
+        player.volume = 0f
+        selfSeek = true
+        player.seekTo(nextIdx, nextStart)
+
+        crossStart = System.currentTimeMillis()
+        crossMs = c
+        xState = XState.CROSSING
+    }
+
+    private fun jumpToNext() {
+        val nextIdx = player.nextMediaItemIndex
+        if (nextIdx == C.INDEX_UNSET) return
+        val start = analyzer.cached(player.getMediaItemAt(nextIdx).mediaId)?.startMs ?: 0L
+        selfSeek = true
+        player.seekTo(nextIdx, start)
+    }
+
+    private fun endCrossfade() {
+        tailPlayer.stop()
+        tailPlayer.volume = 0f
+        player.volume = 1f
+        resetBass()
+        xState = XState.IDLE
+        preparedIndex = -1
+    }
+
+    private fun resetPrepared() {
+        if (xState == XState.PREPARED) {
+            tailPlayer.stop()
+            xState = XState.IDLE
+            preparedIndex = -1
         }
-        if (player.volume != v) player.volume = v
+    }
+
+    /** Troca de grave: a música que sai vai perdendo o grave, para não embolar com a que entra. */
+    private fun bassSwap(t: Float) {
+        val eq = tailEq ?: return
+        runCatching {
+            val min = eq.bandLevelRange[0].toInt().coerceAtLeast(-1500)
+            val cut = (min * (t * 2f).coerceAtMost(1f)).toInt()
+            for (b in 0 until eq.numberOfBands) {
+                val band = b.toShort()
+                if (eq.getCenterFreq(band) / 1000 < 300) eq.setBandLevel(band, cut.toShort())
+            }
+            eq.enabled = true
+        }
+    }
+
+    private fun resetBass() {
+        val eq = tailEq ?: return
+        runCatching {
+            for (b in 0 until eq.numberOfBands) eq.setBandLevel(b.toShort(), 0)
+        }
     }
 
     private fun scheduleSave() {

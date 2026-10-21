@@ -80,7 +80,9 @@ class PlayerConnection(context: Context) {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            if (_state.value.sleep == SleepTimer.EndOfTrack && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+            if (_state.value.sleep == SleepTimer.EndOfTrack &&
+                (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+            ) {
                 controller?.pause()
                 controller?.seekTo(0)
                 cancelSleep()

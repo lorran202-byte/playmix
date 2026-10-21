@@ -71,7 +71,7 @@ data class PlayContext(val type: ContextType, val id: String, val title: String)
 enum class ContextType { PLAYLIST, ALBUM, ARTIST, LIKED, ALL, GENRE, SEARCH }
 
 data class LibrarySettings(
-    val fadeSeconds: Int = 4,
+    val fadeSeconds: Int = 6,
     val excludedFolders: Set<String> = emptySet(),
     /** Pastas escolhidas pelo usuário (caminho relativo). Vazio = todas as músicas do celular. */
     val musicFolders: Set<String> = emptySet(),

@@ -19,8 +19,8 @@ android {
         applicationId = "com.lorranamorim.playmix"
         minSdk = 24
         targetSdk = 35
-        versionCode = 246
-        versionName = "2.4.6"
+        versionCode = 250
+        versionName = "2.5.0"
         // só celulares 64 bits (todos os atuais): deixa o APK bem menor
         ndk { abiFilters += listOf("arm64-v8a") }
     }
