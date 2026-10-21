@@ -370,8 +370,6 @@ fun NowPlayingScreen(
                 }
             }
 
-            // cartão da letra
-            LyricsCard(lyrics, pos, onOpen = { showLyrics = true }, onRetry = { vm.retryLyrics() }, tint = color)
             Spacer(Modifier.height(PM.s8))
         }
 
@@ -397,49 +395,6 @@ private fun currentLineIndex(lines: List<LyricLine>, pos: Long): Int {
     var idx = -1
     for (i in lines.indices) if (lines[i].timeMs <= pos + 250) idx = i else break
     return idx
-}
-
-@Composable
-private fun LyricsCard(state: LyricsState, pos: Long, onOpen: () -> Unit, onRetry: () -> Unit, tint: Color) {
-    Column(
-        Modifier.padding(horizontal = PM.s4, vertical = PM.s4).fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(tint)
-            .clickable(enabled = state is LyricsState.Ready, onClick = onOpen)
-            .padding(PM.s4),
-    ) {
-        Text("Letra", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(PM.s3))
-        when (state) {
-            LyricsState.Idle, LyricsState.Loading -> Text("Buscando letra…", color = PM.TextDim)
-            LyricsState.NotFound -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Letra não encontrada para esta música.", color = PM.TextDim, modifier = Modifier.weight(1f))
-                TextButton(onClick = onRetry) { Text("Tentar de novo", color = PM.Gold) }
-            }
-            is LyricsState.Ready -> {
-                val l = state.lyrics
-                if (l.isSynced) {
-                    val cur = currentLineIndex(l.synced, pos)
-                    val start = cur.coerceAtLeast(0)
-                    l.synced.drop(start).take(4).forEachIndexed { i, line ->
-                        Text(
-                            line.text.ifBlank { "♪" },
-                            style = MaterialTheme.typography.titleLarge,
-                            color = if (i == 0 && cur >= 0) PM.Text else PM.Text.copy(alpha = 0.45f),
-                            modifier = Modifier.padding(vertical = 3.dp),
-                        )
-                    }
-                } else {
-                    Text(
-                        l.plain.orEmpty().lines().take(6).joinToString("\n"),
-                        style = MaterialTheme.typography.titleMedium, color = PM.Text.copy(alpha = 0.85f),
-                    )
-                }
-                Spacer(Modifier.height(PM.s2))
-                Text("Toque para ver a letra completa", style = MaterialTheme.typography.labelMedium, color = PM.TextDim)
-            }
-        }
-    }
 }
 
 @Composable
