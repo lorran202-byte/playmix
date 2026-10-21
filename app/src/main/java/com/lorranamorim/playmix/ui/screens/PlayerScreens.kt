@@ -221,10 +221,11 @@ fun NowPlayingScreen(
             .pointerInput(Unit) { detectTapGestures { } },
     ) {
         Column(
-            Modifier.fillMaxSize().navigationBarsPadding().verticalScroll(rememberScrollState()),
+            Modifier.fillMaxSize().navigationBarsPadding(),
         ) {
             // capa imersiva: metade da tela, de ponta a ponta, sumindo num degradê
-            Box(Modifier.fillMaxWidth().height(screenH * 0.5f)) {
+            // a capa estica para ocupar todo o espaço que sobra acima dos controles
+            Box(Modifier.fillMaxWidth().weight(1f).heightIn(min = screenH * 0.45f)) {
                 Cover(
                     item.mediaMetadata.artworkUri,
                     Modifier.fillMaxSize().haze(coverHaze),
@@ -291,6 +292,8 @@ fun NowPlayingScreen(
                 }
             }
 
+            // controles: bloco fixo na parte de baixo da tela
+            Column(Modifier.fillMaxWidth().padding(bottom = PM.s6)) {
             // barra de progresso
             val frac = dragFrac ?: if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
             SeekBar(
@@ -300,7 +303,7 @@ fun NowPlayingScreen(
                     dragFrac?.let { vm.playerConn.seekTo((it * dur).toLong()) }
                     dragFrac = null
                 },
-                modifier = Modifier.padding(horizontal = PM.s6).padding(top = PM.s4),
+                modifier = Modifier.padding(horizontal = PM.s6).padding(top = PM.s6),
             )
             Row(Modifier.fillMaxWidth().padding(horizontal = PM.s6)) {
                 Text(formatTime((frac * dur).toLong()), style = MaterialTheme.typography.bodySmall, color = PM.TextDim)
@@ -310,32 +313,32 @@ fun NowPlayingScreen(
 
             // controles fixos (nunca mudam de lugar)
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = PM.s4, vertical = PM.s2),
+                Modifier.fillMaxWidth().padding(horizontal = PM.s4, vertical = PM.s6),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { vm.playerConn.toggleShuffle() }) {
-                    Icon(Icons.Filled.Shuffle, "Aleatório", tint = if (player.shuffle) PM.Gold else PM.Text, modifier = Modifier.size(26.dp))
+                    Icon(Icons.Filled.Shuffle, "Aleatório", tint = if (player.shuffle) PM.Gold else PM.Text, modifier = Modifier.size(28.dp))
                 }
-                IconButton(onClick = { vm.playerConn.previous() }, modifier = Modifier.size(56.dp)) {
-                    Icon(Icons.Filled.SkipPrevious, "Anterior", tint = PM.Text, modifier = Modifier.size(40.dp))
+                IconButton(onClick = { vm.playerConn.previous() }, modifier = Modifier.size(64.dp)) {
+                    Icon(Icons.Filled.SkipPrevious, "Anterior", tint = PM.Text, modifier = Modifier.size(46.dp))
                 }
                 Box(
-                    Modifier.size(72.dp).clip(CircleShape).background(PM.Text).clickable { vm.playerConn.togglePlay() },
+                    Modifier.size(80.dp).clip(CircleShape).background(PM.Text).clickable { vm.playerConn.togglePlay() },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        if (player.isPlaying) "Pausar" else "Tocar", tint = PM.Black, modifier = Modifier.size(40.dp),
+                        if (player.isPlaying) "Pausar" else "Tocar", tint = PM.Black, modifier = Modifier.size(44.dp),
                     )
                 }
-                IconButton(onClick = { vm.playerConn.next() }, modifier = Modifier.size(56.dp)) {
-                    Icon(Icons.Filled.SkipNext, "Próxima", tint = PM.Text, modifier = Modifier.size(40.dp))
+                IconButton(onClick = { vm.playerConn.next() }, modifier = Modifier.size(64.dp)) {
+                    Icon(Icons.Filled.SkipNext, "Próxima", tint = PM.Text, modifier = Modifier.size(46.dp))
                 }
                 IconButton(onClick = { vm.playerConn.cycleRepeat() }) {
                     Icon(
                         if (player.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                        "Repetir", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) PM.Gold else PM.Text, modifier = Modifier.size(26.dp),
+                        "Repetir", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) PM.Gold else PM.Text, modifier = Modifier.size(28.dp),
                     )
                 }
             }
@@ -370,7 +373,7 @@ fun NowPlayingScreen(
                 }
             }
 
-            Spacer(Modifier.height(PM.s8))
+            }
         }
 
         AnimatedVisibility(visible = showLyrics, enter = fadeIn(), exit = fadeOut()) {
