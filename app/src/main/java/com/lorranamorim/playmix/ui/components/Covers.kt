@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
@@ -138,7 +140,19 @@ fun rememberCoverColor(uri: Uri?, default: Color = PM.SurfaceHigh): Color {
         val bmp = ((result as? SuccessResult)?.drawable as? BitmapDrawable)?.bitmap ?: return@LaunchedEffect
         val p = Palette.from(bmp).generate()
         val sw = p.vibrantSwatch ?: p.dominantSwatch ?: p.mutedSwatch ?: return@LaunchedEffect
-        color = Color(sw.rgb)
+        color = Color(sw.rgb).forBackground()
     }
     return color
+}
+
+
+/** Escurece a cor da capa para servir de fundo: texto branco sempre legível. */
+fun Color.forBackground(maxLuminance: Float = 0.12f): Color {
+    var c = this
+    var i = 0
+    while (c.luminance() > maxLuminance && i < 20) {
+        c = lerp(c, Color.Black, 0.15f)
+        i++
+    }
+    return c
 }

@@ -24,6 +24,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -53,8 +56,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -129,9 +130,7 @@ fun MiniPlayer(vm: AppViewModel, onExpand: () -> Unit) {
             .padding(horizontal = PM.s2)
             .fillMaxWidth()
             .height(60.dp)
-            .glass(RoundedCornerShape(10.dp), tint = Color(
-                red = tint.red * 0.45f, green = tint.green * 0.45f, blue = tint.blue * 0.45f,
-            ))
+            .glass(RoundedCornerShape(10.dp), tint = tint)
             .clickable(onClick = onExpand)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
@@ -250,17 +249,14 @@ fun NowPlayingScreen(
 
             // barra de progresso
             val frac = dragFrac ?: if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
-            Slider(
-                value = frac,
-                onValueChange = { dragFrac = it },
-                onValueChangeFinished = {
+            SeekBar(
+                fraction = frac,
+                onDrag = { dragFrac = it },
+                onRelease = {
                     dragFrac?.let { vm.playerConn.seekTo((it * dur).toLong()) }
                     dragFrac = null
                 },
-                colors = SliderDefaults.colors(
-                    thumbColor = PM.Text, activeTrackColor = PM.Gold, inactiveTrackColor = Color.White.copy(alpha = 0.2f),
-                ),
-                modifier = Modifier.padding(horizontal = PM.s4).padding(top = PM.s3),
+                modifier = Modifier.padding(horizontal = PM.s6).padding(top = PM.s4),
             )
             Row(Modifier.fillMaxWidth().padding(horizontal = PM.s6)) {
                 Text(formatTime((frac * dur).toLong()), style = MaterialTheme.typography.bodySmall, color = PM.TextDim)
@@ -353,7 +349,7 @@ private fun LyricsCard(state: LyricsState, pos: Long, onOpen: () -> Unit, onRetr
     Column(
         Modifier.padding(horizontal = PM.s4, vertical = PM.s4).fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(red = tint.red * 0.6f, green = tint.green * 0.6f, blue = tint.blue * 0.6f))
+            .background(tint)
             .clickable(enabled = state is LyricsState.Ready, onClick = onOpen)
             .padding(PM.s4),
     ) {
@@ -404,7 +400,7 @@ private fun LyricsFull(state: LyricsState, pos: Long, tint: Color, item: MediaIt
 
     Box(
         Modifier.fillMaxSize()
-            .background(Color(red = tint.red * 0.5f, green = tint.green * 0.5f, blue = tint.blue * 0.5f).copy(alpha = 1f))
+            .background(tint)
             .background(Brush.verticalGradient(listOf(Color.Transparent, PM.Bg.copy(alpha = 0.6f))))
             .pointerInput(Unit) { detectTapGestures { } },
     ) {
@@ -582,4 +578,44 @@ private fun SleepDialog(vm: AppViewModel, current: SleepTimer, onDismiss: () -> 
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Fechar") } },
     )
+}
+
+
+/** Barra de progresso fina, no estilo dos players de streaming: toque ou arraste para pular. */
+@Composable
+private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onRelease: () -> Unit, modifier: Modifier = Modifier) {
+    var width by remember { mutableFloatStateOf(1f) }
+    var dragging by remember { mutableStateOf(false) }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(24.dp)
+            .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
+            .pointerInput(Unit) {
+                detectTapGestures(onPress = { o ->
+                    onDrag((o.x / width).coerceIn(0f, 1f))
+                    tryAwaitRelease()
+                    onRelease()
+                })
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { o -> dragging = true; onDrag((o.x / width).coerceIn(0f, 1f)) },
+                    onDragEnd = { dragging = false; onRelease() },
+                    onDragCancel = { dragging = false; onRelease() },
+                ) { change, _ -> onDrag((change.position.x / width).coerceIn(0f, 1f)) }
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        val h = if (dragging) 6.dp else 4.dp
+        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f)))
+        Box(Modifier.fillMaxWidth(fraction).height(h).clip(RoundedCornerShape(50)).background(PM.Gold))
+        Box(
+            Modifier
+                .fillMaxWidth(fraction)
+                .wrapContentWidth(Alignment.End),
+        ) {
+            Box(Modifier.offset(x = 6.dp).size(if (dragging) 16.dp else 12.dp).clip(CircleShape).background(PM.Text))
+        }
+    }
 }

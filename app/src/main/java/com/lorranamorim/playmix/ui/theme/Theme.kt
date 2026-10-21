@@ -3,7 +3,9 @@ package com.lorranamorim.playmix.ui.theme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -74,7 +76,10 @@ private val typography = Typography(
 
 @Composable
 fun PlayMixTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+    MaterialTheme(colorScheme = scheme, typography = typography) {
+        // texto claro por padrão em todas as telas
+        CompositionLocalProvider(LocalContentColor provides PM.Text, content = content)
+    }
 }
 
 /** Efeito "vidro líquido": fundo translúcido com brilho prateado na borda. */

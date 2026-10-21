@@ -19,8 +19,8 @@ android {
         applicationId = "com.lorranamorim.playmix"
         minSdk = 24
         targetSdk = 35
-        versionCode = 200
-        versionName = "2.0.0"
+        versionCode = 201
+        versionName = "2.0.1"
     }
 
     signingConfigs {
