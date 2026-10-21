@@ -2,6 +2,7 @@
 <resources>
     <color name="pm_black">#FF000000</color>
     <color name="pm_gold">#FFD4AF37</color>
+    <color name="pm_icon_bg">#FF1A1A1B</color>
 
     <style name="Theme.PlayMix" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/pm_black</item>
