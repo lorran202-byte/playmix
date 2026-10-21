@@ -19,8 +19,8 @@ android {
         applicationId = "com.lorranamorim.playmix"
         minSdk = 24
         targetSdk = 35
-        versionCode = 232
-        versionName = "2.3.2"
+        versionCode = 240
+        versionName = "2.4.0"
     }
 
     signingConfigs {
@@ -84,6 +84,10 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze:1.1.1")
     implementation("dev.chrisbanes.haze:haze-materials:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    // tradução das letras no próprio aparelho
+    implementation("com.google.mlkit:translate:17.0.3")
+    implementation("com.google.mlkit:language-id:17.0.6")
 
     testImplementation("junit:junit:4.13.2")
 }

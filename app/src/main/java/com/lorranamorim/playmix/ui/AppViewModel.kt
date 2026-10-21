@@ -32,7 +32,8 @@ sealed interface LyricsState {
     data object Idle : LyricsState
     data object Loading : LyricsState
     data object NotFound : LyricsState
-    data class Ready(val trackId: Long, val lyrics: Lyrics) : LyricsState
+    /** [translation]: uma linha traduzida para cada linha da letra (null = sem tradução). */
+    data class Ready(val trackId: Long, val lyrics: Lyrics, val translation: List<String>? = null) : LyricsState
 }
 
 /** Um item clicável do Início / Biblioteca (playlist, álbum, artista, curtidas, mix). */
@@ -187,7 +188,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _lyrics.value = LyricsState.Loading
         lyricsJob = viewModelScope.launch {
             val l = runCatching { c.lyrics.get(track) }.getOrNull()
-            _lyrics.value = if (l == null || l.isEmpty) LyricsState.NotFound else LyricsState.Ready(track.id, l)
+            if (l == null || l.isEmpty) {
+                _lyrics.value = LyricsState.NotFound
+                return@launch
+            }
+            _lyrics.value = LyricsState.Ready(track.id, l)
+            // tradução para português (não traduz se a letra já estiver em português)
+            val lines = if (l.isSynced) l.synced.map { it.text } else l.plain.orEmpty().lines()
+            val tr = runCatching { c.translator.translate(track.id, lines) }.getOrNull()
+            if (tr != null) _lyrics.value = LyricsState.Ready(track.id, l, tr)
         }
     }
 

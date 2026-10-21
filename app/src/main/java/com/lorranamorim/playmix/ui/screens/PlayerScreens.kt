@@ -98,6 +98,13 @@ import com.lorranamorim.playmix.ui.components.rememberCoverColor
 import com.lorranamorim.playmix.ui.theme.PM
 import com.lorranamorim.playmix.ui.theme.glass
 import kotlinx.coroutines.delay
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.slideInVertically
@@ -217,9 +224,10 @@ fun NowPlayingScreen(
     Box(
         Modifier.fillMaxSize()
             .background(PM.Bg)
-            .background(Brush.verticalGradient(0f to color, 0.55f to color, 1f to PM.Bg))
             .pointerInput(Unit) { detectTapGestures { } },
     ) {
+        // fundo: a própria capa ampliada e desfocada, para a capa se dissolver nela sem emenda
+        BlurredBackdrop(item.mediaMetadata.artworkUri, color)
         Column(
             Modifier.fillMaxSize().navigationBarsPadding(),
         ) {
@@ -228,7 +236,7 @@ fun NowPlayingScreen(
             Box(Modifier.fillMaxWidth().weight(1f).heightIn(min = screenH * 0.45f)) {
                 Cover(
                     item.mediaMetadata.artworkUri,
-                    Modifier.fillMaxSize().haze(coverHaze),
+                    Modifier.fillMaxSize().fadeBottom().haze(coverHaze),
                     RectangleShape,
                     seed = item.mediaMetadata.albumTitle?.toString() ?: "",
                 )
@@ -237,10 +245,10 @@ fun NowPlayingScreen(
                     Modifier.fillMaxWidth().height(150.dp)
                         .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))),
                 )
-                // degradê na parte de baixo da capa
+                // leve sombra embaixo só para o título ficar legível (a capa já some sozinha no fundo desfocado)
                 Box(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.55f)
-                        .background(Brush.verticalGradient(0f to Color.Transparent, 0.55f to color.copy(alpha = 0.75f), 1f to color)),
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.35f)
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.22f)))),
                 )
 
                 // topo
@@ -411,12 +419,13 @@ private fun LyricsFull(state: LyricsState, pos: Long, tint: Color, item: MediaIt
         if (cur >= 0) listState.animateScrollToItem((cur - 2).coerceAtLeast(0))
     }
 
+    val tr = ready?.translation
     Box(
         Modifier.fillMaxSize()
-            .background(tint)
-            .background(Brush.verticalGradient(listOf(Color.Transparent, PM.Bg.copy(alpha = 0.6f))))
+            .background(PM.Bg)
             .pointerInput(Unit) { detectTapGestures { } },
     ) {
+        BlurredBackdrop(item.mediaMetadata.artworkUri, tint)
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(PM.s2), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) { Icon(Icons.Filled.KeyboardArrowDown, "Fechar letra", tint = PM.Text, modifier = Modifier.size(32.dp)) }
@@ -428,24 +437,39 @@ private fun LyricsFull(state: LyricsState, pos: Long, tint: Color, item: MediaIt
             if (synced.isNotEmpty()) {
                 LazyColumn(state = listState, contentPadding = PaddingValues(horizontal = PM.s6, vertical = PM.s8)) {
                     itemsIndexed(synced) { i, line ->
-                        Text(
-                            line.text.ifBlank { "♪" },
-                            fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
-                            color = when {
-                                i == cur -> PM.Text
-                                i < cur -> PM.Text.copy(alpha = 0.55f)
-                                else -> PM.Black.copy(alpha = 0.55f)
-                            },
-                            modifier = Modifier.fillMaxWidth().clickable { onSeek(line.timeMs) }.padding(vertical = 8.dp),
-                        )
+                        val alpha = when {
+                            i == cur -> 1f
+                            i < cur -> 0.5f
+                            else -> 0.35f
+                        }
+                        Column(Modifier.fillMaxWidth().clickable { onSeek(line.timeMs) }.padding(vertical = 8.dp)) {
+                            Text(
+                                line.text.ifBlank { "♪" },
+                                fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
+                                color = PM.Text.copy(alpha = alpha),
+                            )
+                            val t = tr?.getOrNull(i)
+                            if (!t.isNullOrBlank()) {
+                                Text(
+                                    t, fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium,
+                                    color = PM.GoldLight.copy(alpha = alpha * 0.9f),
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                        }
                     }
                 }
             } else {
-                Text(
-                    ready?.lyrics?.plain.orEmpty(),
-                    fontSize = 22.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.verticalScroll(rememberScrollState()).padding(PM.s6),
-                )
+                Column(Modifier.verticalScroll(rememberScrollState()).padding(PM.s6)) {
+                    ready?.lyrics?.plain.orEmpty().lines().forEachIndexed { i, line ->
+                        Text(line, fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
+                        val t = tr?.getOrNull(i)
+                        if (!t.isNullOrBlank()) {
+                            Text(t, fontSize = 16.sp, lineHeight = 22.sp, color = PM.GoldLight.copy(alpha = 0.85f))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
             }
         }
     }
@@ -638,16 +662,20 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onRelease: () -> U
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun LyricsPill(state: LyricsState, pos: Long, haze: HazeState, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val text: String? = when (state) {
+    // linha original + tradução em português (quando a música não é em português)
+    val text: Pair<String, String?>? = when (state) {
         LyricsState.Idle, LyricsState.NotFound -> null
-        LyricsState.Loading -> "Buscando letra…"
+        LyricsState.Loading -> "Buscando letra…" to null
         is LyricsState.Ready -> {
             val l = state.lyrics
             if (l.isSynced) {
                 val cur = currentLineIndex(l.synced, pos)
-                if (cur < 0) "♪" else l.synced[cur].text.ifBlank { "♪" }
+                if (cur < 0) "♪" to null
+                else l.synced[cur].text.ifBlank { "♪" } to state.translation?.getOrNull(cur)?.takeIf { it.isNotBlank() }
             } else {
-                l.plain?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Ver letra"
+                val lines = l.plain.orEmpty().lines()
+                val i = lines.indexOfFirst { it.isNotBlank() }
+                if (i < 0) "Ver letra" to null else lines[i] to state.translation?.getOrNull(i)?.takeIf { it.isNotBlank() }
             }
         }
     }
@@ -674,13 +702,57 @@ private fun LyricsPill(state: LyricsState, pos: Long, haze: HazeState, onClick: 
                 (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut())
             },
             label = "letra",
-        ) { line ->
-            Text(
-                line,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+        ) { (line, translated) ->
+            Column {
+                Text(
+                    line,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (translated != null) {
+                    Text(
+                        translated,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PM.GoldLight,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
+
+
+/** Fundo no estilo Apple Music: a capa ampliada e bem desfocada, escurecida para o texto aparecer. */
+@Composable
+private fun BlurredBackdrop(uri: android.net.Uri?, fallback: Color) {
+    if (android.os.Build.VERSION.SDK_INT >= 31 && uri != null) {
+        coil.compose.AsyncImage(
+            model = uri,
+            contentDescription = null,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().scale(1.5f).blur(90.dp, BlurredEdgeTreatment.Rectangle),
+        )
+    } else {
+        Box(Modifier.fillMaxSize().background(fallback))
+    }
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.25f), 0.6f to Color.Black.copy(alpha = 0.38f), 1f to Color.Black.copy(alpha = 0.62f)),
+        ),
+    )
+}
+
+/** Faz a parte de baixo da imagem desaparecer aos poucos (transparência real, sem emenda de cor). */
+private fun Modifier.fadeBottom(solidUntil: Float = 0.5f): Modifier =
+    this
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            drawRect(
+                brush = Brush.verticalGradient(0f to Color.Black, solidUntil to Color.Black, 1f to Color.Transparent),
+                blendMode = BlendMode.DstIn,
+            )
+        }
