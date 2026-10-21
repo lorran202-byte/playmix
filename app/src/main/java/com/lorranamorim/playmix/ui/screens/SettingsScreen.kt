@@ -1,6 +1,10 @@
 package com.lorranamorim.playmix.ui.screens
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.LibraryMusic
 import android.media.audiofx.AudioEffect
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -56,6 +60,9 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
     val lib by vm.library.collectAsStateWithLifecycle()
     val scanning by vm.scanning.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) vm.addMusicFolder(uri)
+    }
     var fade by remember(data.settings.fadeSeconds) { mutableFloatStateOf(data.settings.fadeSeconds.toFloat()) }
 
     LazyColumn(Modifier.fillMaxSize().background(PM.Bg), contentPadding = PaddingValues(bottom = bottomSpace + 24.dp)) {
@@ -126,35 +133,19 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
                 "${lib.tracks.size} músicas encontradas",
             ) { vm.refreshLibrary() }
         }
-        if (folders.isNotEmpty()) {
+        item {
+            val chosen = data.settings.musicFolders.size
+            SettingRow(
+                Icons.Filled.FolderOpen,
+                "Pastas de música",
+                if (chosen == 0) "Todas as músicas do celular • toque para escolher pastas"
+                else "$chosen ${if (chosen == 1) "pasta escolhida" else "pastas escolhidas"} • toque para adicionar outra",
+            ) { folderPicker.launch(null) }
+        }
+        if (data.settings.musicFolders.isNotEmpty()) {
             item {
-                Text(
-                    "Pastas mostradas no app",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(start = PM.s4, end = PM.s4, top = PM.s4, bottom = PM.s1),
-                )
-                Text(
-                    "Desmarque pastas com áudios que não são música (WhatsApp, gravações…).",
-                    style = MaterialTheme.typography.bodySmall, color = PM.TextDim,
-                    modifier = Modifier.padding(horizontal = PM.s4),
-                )
-            }
-            items(folders) { folder ->
-                val shown = folder !in data.settings.excludedFolders
-                Row(
-                    Modifier.fillMaxWidth().clickable {
-                        vm.updateSettings { s ->
-                            s.copy(excludedFolders = if (shown) s.excludedFolders + folder else s.excludedFolders - folder)
-                        }
-                    }.padding(horizontal = PM.s2),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(
-                        checked = shown, onCheckedChange = null,
-                        colors = CheckboxDefaults.colors(checkedColor = PM.Gold, checkmarkColor = PM.Black),
-                    )
-                    Spacer(Modifier.width(PM.s2))
-                    Text(folder.ifBlank { "(raiz)" }, style = MaterialTheme.typography.bodyMedium)
+                SettingRow(Icons.Filled.LibraryMusic, "Usar todas as músicas do celular", "Volta a mostrar tudo, sem filtro de pasta") {
+                    vm.useAllFolders()
                 }
             }
         }

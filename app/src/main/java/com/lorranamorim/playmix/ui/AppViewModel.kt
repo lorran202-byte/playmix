@@ -153,6 +153,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         c.eq.reapply()
     }
 
+    // ---------------- Pastas de música ----------------
+
+    /** Recebe a pasta escolhida no seletor do Android e guarda o caminho dela (sem mostrar na tela). */
+    fun addMusicFolder(treeUri: android.net.Uri) {
+        val docId = runCatching { android.provider.DocumentsContract.getTreeDocumentId(treeUri) }.getOrNull() ?: return
+        val path = docId.substringAfter(':', "").trim('/')
+        store.updateSettings { s ->
+            // pasta raiz do aparelho = todas as músicas
+            if (path.isEmpty()) s.copy(musicFolders = emptySet()) else s.copy(musicFolders = s.musicFolders + path)
+        }
+    }
+
+    fun useAllFolders() = store.updateSettings { it.copy(musicFolders = emptySet()) }
+
     // ---------------- Perfil ----------------
 
     val profilePhotoFile: java.io.File get() = java.io.File(getApplication<Application>().filesDir, "profile.jpg")

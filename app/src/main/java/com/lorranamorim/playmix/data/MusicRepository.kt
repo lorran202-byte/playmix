@@ -45,7 +45,12 @@ class MusicRepository(private val context: Context, private val store: LibrarySt
             .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     val library: StateFlow<MusicLibrary> = combine(allTracks, loaded, store.data) { tracks, isLoaded, data ->
-        build(tracks.filterNot { it.folder in data.settings.excludedFolders }, isLoaded)
+        val chosen = data.settings.musicFolders
+        // só as músicas dentro das pastas escolhidas (e das subpastas delas); nenhuma escolhida = todas
+        val visible = if (chosen.isEmpty()) tracks else tracks.filter { t ->
+            chosen.any { f -> t.folder.equals(f, ignoreCase = true) || t.folder.startsWith("$f/", ignoreCase = true) }
+        }
+        build(visible, isLoaded)
     }.stateIn(scope, SharingStarted.Eagerly, MusicLibrary())
 
     fun refresh() {

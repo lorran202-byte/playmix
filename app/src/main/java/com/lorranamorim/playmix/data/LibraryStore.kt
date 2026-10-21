@@ -123,6 +123,7 @@ class LibraryStore(context: Context) {
         put("settings", JSONObject().apply {
             put("fade", d.settings.fadeSeconds)
             put("excluded", JSONArray(d.settings.excludedFolders.toList()))
+            put("musicFolders", JSONArray(d.settings.musicFolders.toList()))
             put("grid", d.settings.gridMode)
             put("sort", d.settings.sort.name)
             put("autoEq", d.settings.autoEq)
@@ -163,6 +164,7 @@ class LibraryStore(context: Context) {
         val settings = if (s == null) LibrarySettings() else LibrarySettings(
             fadeSeconds = s.optInt("fade", 4),
             excludedFolders = s.optJSONArray("excluded").strings().toSet(),
+            musicFolders = s.optJSONArray("musicFolders").strings().toSet(),
             gridMode = s.optBoolean("grid", false),
             sort = runCatching { LibrarySort.valueOf(s.optString("sort")) }.getOrDefault(LibrarySort.RECENT),
             autoEq = s.optBoolean("autoEq", true),
