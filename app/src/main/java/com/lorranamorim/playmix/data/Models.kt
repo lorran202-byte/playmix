@@ -80,6 +80,8 @@ data class LibrarySettings(
     val autoEq: Boolean = true,
     /** Ajuste de batida (beatmatching) no crossfade. */
     val beatMatch: Boolean = true,
+    /** Sai antes de finais calmos longos e entra perto do fim de introduções longas. */
+    val smartCut: Boolean = true,
     val profileName: String = "",
     /** 0 = sem foto; muda a cada foto nova para atualizar a imagem. */
     val profilePhotoVersion: Long = 0L,

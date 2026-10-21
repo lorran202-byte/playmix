@@ -186,4 +186,28 @@ class CoreTests {
         assertTrue(!kd.compatible(0, 6)) // C e F# (opostos)
         assertTrue(kd.compatible(-1, 6)) // desconhecido não bloqueia
     }
+
+    // ---------- estrutura ----------
+
+    @Test
+    fun findsLongIntroAndOutro() {
+        // 3 min: introdução calma até 20 s, corpo forte, final calmo a partir de 150 s; 120 BPM (frase = 8 s)
+        val env = FloatArray(1800) { i ->
+            val ms = i * 100
+            if (ms < 20_000 || ms >= 150_000) -25f else -10f
+        }
+        val beat = com.lorranamorim.playmix.playback.BeatInfo(120.0, 0L, 2.0, 0L)
+        val st = com.lorranamorim.playmix.playback.StructureDetect.detect(env, beat, beat, 0L, 180_000L)
+        assertEquals(24_000L, st.introEndMs) // primeira frase toda forte
+        assertEquals(144_000L, st.outroStartMs) // fim da última frase toda forte
+    }
+
+    @Test
+    fun noStructureWhenSongIsEven() {
+        val env = FloatArray(1800) { -10f }
+        val beat = com.lorranamorim.playmix.playback.BeatInfo(120.0, 0L, 2.0, 0L)
+        val st = com.lorranamorim.playmix.playback.StructureDetect.detect(env, beat, beat, 0L, 180_000L)
+        assertEquals(-1L, st.introEndMs)
+        assertEquals(-1L, st.outroStartMs)
+    }
 }

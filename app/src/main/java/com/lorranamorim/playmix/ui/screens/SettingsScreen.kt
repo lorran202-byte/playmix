@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material.icons.filled.Refresh
@@ -131,6 +132,27 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
                 }
                 Switch(
                     checked = data.settings.beatMatch, onCheckedChange = { on -> vm.updateSettings { s -> s.copy(beatMatch = on) } },
+                    colors = SwitchDefaults.colors(checkedThumbColor = PM.Black, checkedTrackColor = PM.Gold),
+                )
+            }
+        }
+        item {
+            Row(
+                Modifier.fillMaxWidth().clickable { vm.updateSettings { s -> s.copy(smartCut = !s.smartCut) } }
+                    .padding(horizontal = PM.s4, vertical = PM.s3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.ContentCut, null, tint = PM.Gold)
+                Spacer(Modifier.width(PM.s4))
+                Column(Modifier.weight(1f)) {
+                    Text("Pular finais e introduções longas", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Analisa a música inteira: sai no fim da última parte forte e faz a próxima entrar perto de onde ela \"começa de verdade\".",
+                        style = MaterialTheme.typography.bodyMedium, color = PM.TextDim,
+                    )
+                }
+                Switch(
+                    checked = data.settings.smartCut, onCheckedChange = { on -> vm.updateSettings { s -> s.copy(smartCut = on) } },
                     colors = SwitchDefaults.colors(checkedThumbColor = PM.Black, checkedTrackColor = PM.Gold),
                 )
             }

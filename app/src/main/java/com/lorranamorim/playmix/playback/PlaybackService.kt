@@ -46,6 +46,7 @@ class PlaybackService : MediaSessionService() {
 
     // ---------- ajuste de batida ----------
     private lateinit var beats: BeatAnalyzer
+    private lateinit var structure: StructureAnalyzer
     private class BeatPlan(val speed: Double, val out: BeatInfo, val inc: BeatInfo)
     private var activePlan: BeatPlan? = null
     private var needAlign = false
@@ -80,6 +81,7 @@ class PlaybackService : MediaSessionService() {
 
         analyzer = SilenceAnalyzer(this)
         beats = BeatAnalyzer(this)
+        structure = StructureAnalyzer(this)
         tailPlayer = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
@@ -215,7 +217,7 @@ class PlaybackService : MediaSessionService() {
         listOf(idx, player.nextMediaItemIndex).filter { it in 0 until player.mediaItemCount }.forEach { i ->
             val item = player.getMediaItemAt(i)
             val id = item.mediaId
-            if (analyzer.cached(id) != null && beats.cached(id) != null) return@forEach
+            if (analyzer.cached(id) != null && beats.cached(id) != null && structure.cached(id) != null) return@forEach
             val uri = uriForId(id) ?: return@forEach
             val dur = item.mediaMetadata.extras?.getLong(EXTRA_DURATION) ?: 0L
             if (dur <= 0) return@forEach
@@ -224,6 +226,8 @@ class PlaybackService : MediaSessionService() {
                     val bounds = analyzer.analyze(id, uri, dur)
                     // depois dos silêncios, o andamento e as batidas do começo e do fim
                     beats.analyze(id, uri, bounds)
+                    // e a estrutura da música inteira (introdução e final)
+                    structure.analyze(id, uri, bounds, beats.cached(id))
                 }
             }
         }
@@ -327,10 +331,21 @@ class PlaybackService : MediaSessionService() {
                 // sem frase boa: pelo menos começa numa batida
                 trigger = (out.beatMs + kotlin.math.floor((lastStart - out.beatMs) / pOut) * pOut).toLong()
             }
+            // estrutura: se a música tem um final calmo longo, sai antes dele (no fim da última parte forte)
+            val smart = store.data.value.settings.smartCut
+            structure.cached(curId)?.outroStartMs?.takeIf { smart && it > 0 }?.let { o ->
+                if (o + (crossMs * speed).toLong() <= end && o < trigger && o > trigger - 80_000) trigger = o
+            }
             // a que entra começa no início de uma frase dela (ou na primeira batida)
             var nextStart = inc.phraseMs
             if (nextStart < nextDefault - 100 || nextStart - nextDefault > 8 * pIn) {
                 nextStart = (inc.beatMs + kotlin.math.ceil((nextDefault - inc.beatMs) / pIn) * pIn).toLong()
+            }
+            // e se ela tem introdução calma longa, entra perto do fim dela: a parte forte chega junto com o fim da mistura
+            structure.cached(nextId)?.introEndMs?.takeIf { smart && it > 0 }?.let { ie ->
+                val phraseIn = 16 * pIn
+                val cand = (inc.phraseMs + kotlin.math.floor((ie - crossMs - inc.phraseMs) / phraseIn) * phraseIn).toLong()
+                if (cand > nextStart && cand >= nextDefault) nextStart = cand
             }
             tr = Transition(
                 idx, curId, nextId, if (keyOk) Kind.MIX else Kind.CUT, trigger, crossMs, nextStart.coerceAtLeast(0L),
@@ -339,7 +354,11 @@ class PlaybackService : MediaSessionService() {
         } else {
             val crossMs = crossSetting.coerceAtMost(maxCross)
             val kind = if (out != null && inc != null) Kind.FILTER else Kind.BLEND
-            tr = Transition(idx, curId, nextId, kind, end - crossMs, crossMs, nextDefault, null, frozen = pos >= end - crossMs - 5_000)
+            var trigger = end - crossMs
+            structure.cached(curId)?.outroStartMs?.takeIf { store.data.value.settings.smartCut && it > 0 }?.let { o ->
+                if (o + crossMs <= end && o < trigger) trigger = o
+            }
+            tr = Transition(idx, curId, nextId, kind, trigger, crossMs, nextDefault, null, frozen = pos >= trigger - 5_000)
         }
         planned = tr
         return tr

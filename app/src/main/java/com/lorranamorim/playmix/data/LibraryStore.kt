@@ -128,6 +128,7 @@ class LibraryStore(context: Context) {
             put("sort", d.settings.sort.name)
             put("autoEq", d.settings.autoEq)
             put("beatMatch", d.settings.beatMatch)
+            put("smartCut", d.settings.smartCut)
             put("profileName", d.settings.profileName)
             put("photoV", d.settings.profilePhotoVersion)
         })
@@ -170,6 +171,7 @@ class LibraryStore(context: Context) {
             sort = runCatching { LibrarySort.valueOf(s.optString("sort")) }.getOrDefault(LibrarySort.RECENT),
             autoEq = s.optBoolean("autoEq", true),
             beatMatch = s.optBoolean("beatMatch", true),
+            smartCut = s.optBoolean("smartCut", true),
             profileName = s.optString("profileName", ""),
             profilePhotoVersion = s.optLong("photoV", 0L),
         )
