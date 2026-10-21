@@ -73,6 +73,9 @@ data class LibrarySettings(
     val gridMode: Boolean = false,
     val sort: LibrarySort = LibrarySort.RECENT,
     val autoEq: Boolean = true,
+    val profileName: String = "",
+    /** 0 = sem foto; muda a cada foto nova para atualizar a imagem. */
+    val profilePhotoVersion: Long = 0L,
 )
 
 enum class LibrarySort(val label: String) {

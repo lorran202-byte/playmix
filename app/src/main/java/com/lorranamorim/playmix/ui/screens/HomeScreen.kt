@@ -32,6 +32,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.lorranamorim.playmix.ui.components.ProfileAvatar
+import com.lorranamorim.playmix.ui.components.ProfileDialog
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -58,6 +63,9 @@ import java.util.Calendar
 fun HomeScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
     val home by vm.home.collectAsStateWithLifecycle()
     val lib by vm.library.collectAsStateWithLifecycle()
+    val data by vm.data.collectAsStateWithLifecycle()
+    var showProfile by remember { mutableStateOf(false) }
+    if (showProfile) ProfileDialog(vm) { showProfile = false }
 
     Box(
         Modifier.fillMaxSize().background(
@@ -70,7 +78,21 @@ fun HomeScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
                     Modifier.statusBarsPadding().fillMaxWidth().padding(start = PM.s4, end = PM.s2, top = PM.s3),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(greeting(), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                    ProfileAvatar(vm, 44.dp, Modifier.clickable { showProfile = true })
+                    Spacer(Modifier.width(PM.s3))
+                    Column(Modifier.weight(1f).clickable { showProfile = true }) {
+                        val name = data.settings.profileName.trim()
+                        Text(
+                            if (name.isBlank()) greeting() else "${greeting()},",
+                            style = if (name.isBlank()) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleMedium,
+                            color = if (name.isBlank()) PM.Text else PM.TextDim,
+                        )
+                        if (name.isNotBlank()) {
+                            Text(name, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        } else {
+                            Text("Toque para criar seu perfil", style = MaterialTheme.typography.bodySmall, color = PM.TextDim)
+                        }
+                    }
                     IconButton(onClick = nav.settings) { Icon(Icons.Outlined.Settings, "Configurações", tint = PM.Text) }
                 }
             }

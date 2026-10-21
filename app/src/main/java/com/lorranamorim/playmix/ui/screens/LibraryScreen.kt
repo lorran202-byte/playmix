@@ -64,7 +64,8 @@ import com.lorranamorim.playmix.data.PlayContext
 import com.lorranamorim.playmix.ui.AppViewModel
 import com.lorranamorim.playmix.ui.Nav
 import com.lorranamorim.playmix.ui.Shelf
-import com.lorranamorim.playmix.ui.components.Avatar
+import com.lorranamorim.playmix.ui.components.ProfileAvatar
+import com.lorranamorim.playmix.ui.components.ProfileDialog
 import com.lorranamorim.playmix.ui.components.NameDialog
 import com.lorranamorim.playmix.ui.components.ShelfCard
 import com.lorranamorim.playmix.ui.components.ShelfRow
@@ -81,6 +82,8 @@ fun LibraryScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
     val player by vm.player.collectAsStateWithLifecycle()
     var filter by rememberSaveable { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var showProfile by remember { mutableStateOf(false) }
+    if (showProfile) ProfileDialog(vm) { showProfile = false }
     var sortMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val f = filter?.let { LibFilter.valueOf(it) }
@@ -112,7 +115,7 @@ fun LibraryScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
 
     Column(Modifier.fillMaxSize().background(PM.Bg).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = PM.s4, end = PM.s2, top = PM.s3), verticalAlignment = Alignment.CenterVertically) {
-            Avatar("P")
+            ProfileAvatar(vm, 34.dp, Modifier.clickable { showProfile = true })
             Spacer(Modifier.width(PM.s3))
             Text("Sua Biblioteca", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
             IconButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, "Criar playlist", tint = PM.Text) }

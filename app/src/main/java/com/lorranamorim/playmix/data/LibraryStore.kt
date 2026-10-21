@@ -126,6 +126,8 @@ class LibraryStore(context: Context) {
             put("grid", d.settings.gridMode)
             put("sort", d.settings.sort.name)
             put("autoEq", d.settings.autoEq)
+            put("profileName", d.settings.profileName)
+            put("photoV", d.settings.profilePhotoVersion)
         })
     }
 
@@ -164,6 +166,8 @@ class LibraryStore(context: Context) {
             gridMode = s.optBoolean("grid", false),
             sort = runCatching { LibrarySort.valueOf(s.optString("sort")) }.getOrDefault(LibrarySort.RECENT),
             autoEq = s.optBoolean("autoEq", true),
+            profileName = s.optString("profileName", ""),
+            profilePhotoVersion = s.optLong("photoV", 0L),
         )
         return LibraryData(liked, playlists, pinned, stats, recent, settings)
     }

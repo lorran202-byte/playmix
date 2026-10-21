@@ -152,6 +152,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         c.eq.reapply()
     }
 
+    // ---------------- Perfil ----------------
+
+    val profilePhotoFile: java.io.File get() = java.io.File(getApplication<Application>().filesDir, "profile.jpg")
+
+    fun setProfileName(name: String) = store.updateSettings { it.copy(profileName = name.trim().take(40)) }
+
+    /** Copia a foto escolhida para dentro do app (a original pode ser apagada depois). */
+    fun setProfilePhoto(uri: android.net.Uri) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val ok = runCatching {
+                getApplication<Application>().contentResolver.openInputStream(uri)?.use { input ->
+                    profilePhotoFile.outputStream().use { input.copyTo(it) }
+                } != null
+            }.getOrDefault(false)
+            if (ok) store.updateSettings { it.copy(profilePhotoVersion = System.currentTimeMillis()) }
+        }
+    }
+
+    fun removeProfilePhoto() {
+        profilePhotoFile.delete()
+        store.updateSettings { it.copy(profilePhotoVersion = 0L) }
+    }
+
     fun retryLyrics() {
         val id = player.value.currentId ?: return
         c.lyrics.clearCache(id)
