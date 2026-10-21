@@ -89,7 +89,7 @@ fun TrackMenuSheet(
                 MenuItem(Icons.Filled.PlaylistRemove, "Remover desta playlist") { vm.removeFromPlaylist(playlistId, track.id); onDismiss() }
             }
             MenuItem(Icons.Filled.Album, "Ir para o álbum") { onDismiss(); onGoAlbum(track.albumId) }
-            MenuItem(Icons.Filled.Person, "Ir para o artista") { onDismiss(); onGoArtist(track.artist) }
+            MenuItem(Icons.Filled.Person, "Ir para o artista") { onDismiss(); onGoArtist(track.primaryArtist) }
             MenuItem(Icons.Filled.Share, "Compartilhar arquivo") {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "audio/*"

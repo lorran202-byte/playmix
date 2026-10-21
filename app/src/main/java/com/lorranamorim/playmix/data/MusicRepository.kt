@@ -81,11 +81,14 @@ class MusicRepository(private val context: Context, private val store: LibrarySt
     private fun build(tracks: List<Track>, isLoaded: Boolean): MusicLibrary {
         val albums = tracks.groupBy { it.albumId }.map { (id, t) ->
             val sorted = t.sortedWith(compareBy({ it.trackNumber }, { it.title.lowercase() }))
-            val artist = t.groupingBy { it.artist }.eachCount().maxByOrNull { it.value }?.key ?: ""
+            val artist = t.groupingBy { it.primaryArtist }.eachCount().maxByOrNull { it.value }?.key ?: ""
             Album(id, t.first().album, artist, sorted)
         }.sortedBy { it.title.lowercase() }
         val albumsByArtist = albums.groupBy { it.artist }
-        val artists = tracks.groupBy { it.artist }.map { (name, t) ->
+        // a faixa entra em todos os artistas dela (principal e participações)
+        val byArtist = LinkedHashMap<String, MutableList<Track>>()
+        tracks.forEach { t -> t.artists.forEach { a -> byArtist.getOrPut(a) { ArrayList() }.add(t) } }
+        val artists = byArtist.map { (name, t) ->
             Artist(name, t.sortedBy { it.title.lowercase() }, albumsByArtist[name] ?: emptyList())
         }.sortedBy { it.name.lowercase() }
         return MusicLibrary(

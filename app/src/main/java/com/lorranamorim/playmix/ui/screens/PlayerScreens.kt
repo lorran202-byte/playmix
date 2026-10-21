@@ -293,7 +293,7 @@ fun NowPlayingScreen(
                             item.artistText, style = MaterialTheme.typography.bodyLarge, color = PM.Text.copy(alpha = 0.75f), maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.clickable(enabled = track != null) {
-                                track?.let { onOpen(PlayContext(ContextType.ARTIST, it.artist, it.artist)) }
+                                track?.let { onOpen(PlayContext(ContextType.ARTIST, it.primaryArtist, it.primaryArtist)) }
                             },
                         )
                     }

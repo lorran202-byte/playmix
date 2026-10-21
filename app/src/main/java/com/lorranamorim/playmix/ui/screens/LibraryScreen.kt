@@ -96,8 +96,18 @@ fun LibraryScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
             list += vm.likedShelf(lib, data) to Long.MAX_VALUE
             data.playlists.forEach { list += vm.playlistShelf(it, lib) to it.createdAt }
         }
-        if (f == null || f == LibFilter.ALBUMS) lib.albums.forEach { a -> list += vm.albumShelf(a) to a.tracks.maxOf { it.dateAdded } }
-        if (f == null || f == LibFilter.ARTISTS) lib.artists.forEach { a -> list += vm.artistShelf(a) to a.tracks.maxOf { it.dateAdded } }
+        // sem filtro: só o que você usa (tocados recentemente e fixados); a lista completa fica nos filtros
+        val mine = recentRank.keys + data.pinned
+        if (f == LibFilter.ALBUMS) lib.albums.forEach { a -> list += vm.albumShelf(a) to a.tracks.maxOf { it.dateAdded } }
+        else if (f == null) lib.albums.filter { "ALBUM:${it.id}" in mine }.forEach { a -> list += vm.albumShelf(a) to a.tracks.maxOf { it.dateAdded } }
+        if (f == LibFilter.ARTISTS) lib.artists.forEach { a -> list += vm.artistShelf(a) to a.tracks.maxOf { it.dateAdded } }
+        else if (f == null) lib.artists.filter { "ARTIST:${it.name}" in mine }.forEach { a -> list += vm.artistShelf(a) to a.tracks.maxOf { it.dateAdded } }
+        if (f == null) {
+            // mixes por gênero que você tocou
+            recentRank.keys.filter { it.startsWith("GENRE:") }.forEach { key ->
+                PlayContext.fromKey(key, key.substringAfter(':'))?.let { ctx -> vm.shelfFor(ctx, lib, data)?.let { list += it to 0L } }
+            }
+        }
         val sorted = when (settings.sort) {
             LibrarySort.RECENT -> list.sortedWith(compareBy({ recentRank[it.first.ctx.key] ?: Int.MAX_VALUE }, { -it.second }))
             LibrarySort.ADDED -> list.sortedByDescending { it.second }

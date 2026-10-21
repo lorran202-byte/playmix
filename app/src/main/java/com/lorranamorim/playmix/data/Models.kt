@@ -17,6 +17,9 @@ data class Track(
     val trackNumber: Int,
 ) {
     val key: String get() = id.toString()
+    /** Cada artista da faixa separado (participações viram artistas próprios). */
+    val artists: List<String> get() = splitArtists(artist)
+    val primaryArtist: String get() = artists.first()
     val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
     val artUri: Uri get() = albumArtUri(albumId)
 }
@@ -92,3 +95,14 @@ data class LibraryData(
     val recentContexts: List<Pair<String, String>> = emptyList(), // chave -> título, mais recente primeiro
     val settings: LibrarySettings = LibrarySettings(),
 )
+
+
+private val artistSeparators = Regex(
+    """\s*(?:,|;|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+part\.?\s+|\s+participação\s+|\s+x\s+|\s+with\s+|\s+vs\.?\s+)\s*""",
+    RegexOption.IGNORE_CASE,
+)
+
+fun splitArtists(raw: String): List<String> {
+    val parts = raw.split(artistSeparators).map { it.trim().trim('(', ')') }.filter { it.isNotBlank() }.distinct()
+    return parts.ifEmpty { listOf(raw) }
+}

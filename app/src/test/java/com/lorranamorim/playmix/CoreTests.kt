@@ -88,4 +88,14 @@ class CoreTests {
         val mid = p.gainAt(120f)
         assertTrue(mid < 5.5f && mid > 3.5f)
     }
+
+    @Test
+    fun splitsFeaturedArtistsButKeepsDuos() {
+        val split = { s: String -> com.lorranamorim.playmix.data.splitArtists(s) }
+        assertEquals(listOf("Rihanna", "Calvin Harris"), split("Rihanna, Calvin Harris"))
+        assertEquals(listOf("Calvin Harris", "John Newman"), split("Calvin Harris feat. John Newman"))
+        assertEquals(listOf("Henrique & Juliano"), split("Henrique & Juliano"))
+        assertEquals(listOf("Diego e Arnaldo"), split("Diego e Arnaldo"))
+        assertEquals(listOf("Alok", "Zeeba"), split("Alok x Zeeba"))
+    }
 }
