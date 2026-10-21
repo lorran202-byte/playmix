@@ -234,9 +234,19 @@ fun NowPlayingScreen(
             // capa imersiva: metade da tela, de ponta a ponta, sumindo num degradê
             // a capa estica para ocupar todo o espaço que sobra acima dos controles
             Box(Modifier.fillMaxWidth().weight(1f).heightIn(min = screenH * 0.45f)) {
+                // por baixo: a mesma capa desfocada, que também some no fundo.
+                // Assim a capa nítida vai ficando borrada aos poucos (desfoque progressivo)
+                if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    Cover(
+                        item.mediaMetadata.artworkUri,
+                        Modifier.fillMaxSize().fadeBottom(0.7f).blur(40.dp, BlurredEdgeTreatment.Rectangle),
+                        RectangleShape,
+                        seed = item.mediaMetadata.albumTitle?.toString() ?: "",
+                    )
+                }
                 Cover(
                     item.mediaMetadata.artworkUri,
-                    Modifier.fillMaxSize().fadeBottom().haze(coverHaze),
+                    Modifier.fillMaxSize().fadeBottom(0.42f).haze(coverHaze),
                     RectangleShape,
                     seed = item.mediaMetadata.albumTitle?.toString() ?: "",
                 )
@@ -245,11 +255,7 @@ fun NowPlayingScreen(
                     Modifier.fillMaxWidth().height(150.dp)
                         .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))),
                 )
-                // leve sombra embaixo só para o título ficar legível (a capa já some sozinha no fundo desfocado)
-                Box(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.35f)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.22f)))),
-                )
+
 
                 // topo
                 Row(
@@ -733,14 +739,14 @@ private fun BlurredBackdrop(uri: android.net.Uri?, fallback: Color) {
             model = uri,
             contentDescription = null,
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().scale(1.5f).blur(90.dp, BlurredEdgeTreatment.Rectangle),
+            modifier = Modifier.fillMaxSize().scale(1.3f).blur(60.dp, BlurredEdgeTreatment.Rectangle),
         )
     } else {
         Box(Modifier.fillMaxSize().background(fallback))
     }
     Box(
         Modifier.fillMaxSize().background(
-            Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.25f), 0.6f to Color.Black.copy(alpha = 0.38f), 1f to Color.Black.copy(alpha = 0.62f)),
+            Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.15f), 0.45f to Color.Black.copy(alpha = 0.25f), 1f to Color.Black.copy(alpha = 0.55f)),
         ),
     )
 }
