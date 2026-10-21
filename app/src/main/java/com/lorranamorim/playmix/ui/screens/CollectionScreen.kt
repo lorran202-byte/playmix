@@ -78,6 +78,12 @@ import com.lorranamorim.playmix.ui.components.TrackRow
 import com.lorranamorim.playmix.ui.components.rememberCoverColor
 import com.lorranamorim.playmix.ui.theme.GoldBrush
 import com.lorranamorim.playmix.ui.theme.PM
+import com.lorranamorim.playmix.ui.components.GlassCircleButton
+import com.lorranamorim.playmix.ui.components.MosaicCover
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 
 @Composable
 fun CollectionScreen(vm: AppViewModel, nav: Nav, type: ContextType, id: String, bottomSpace: Dp) {
@@ -117,65 +123,87 @@ fun CollectionScreen(vm: AppViewModel, nav: Nav, type: ContextType, id: String, 
     val playlistId = if (isPlaylist) id else null
 
     LazyColumn(
-        Modifier.fillMaxSize().background(PM.Bg),
+        Modifier.fillMaxSize().background(
+            // a página inteira fica na cor da capa, como nas páginas de artista dos players modernos
+            Brush.verticalGradient(0f to headerColor, 0.5f to headerColor.copy(alpha = 0.55f), 1f to PM.Bg),
+        ),
         contentPadding = PaddingValues(bottom = bottomSpace + 24.dp),
     ) {
         item {
-            Box(
-                Modifier.fillMaxWidth().background(
-                    Brush.verticalGradient(listOf(headerColor.copy(alpha = 0.85f), headerColor.copy(alpha = 0.35f), PM.Bg)),
-                ),
-            ) {
-                Column(Modifier.statusBarsPadding().fillMaxWidth()) {
-                    IconButton(onClick = nav.back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = PM.Text) }
-                    Box(Modifier.fillMaxWidth().padding(vertical = PM.s2), contentAlignment = Alignment.Center) {
-                        ContextCover(type, if (type == ContextType.ARTIST) tracks.take(1) else tracks, 220.dp, ctx.title)
-                    }
-                    Text(
-                        ctx.title, style = MaterialTheme.typography.headlineLarge, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = PM.s4, vertical = PM.s2),
-                        textAlign = if (type == ContextType.ARTIST) TextAlign.Center else TextAlign.Start,
+            // capa de ponta a ponta no topo, sumindo na cor da página; nome grande centralizado por cima
+            Box(Modifier.fillMaxWidth().height(400.dp)) {
+                when (type) {
+                    ContextType.LIKED -> Box(
+                        Modifier.fillMaxSize().fadeBottom(0.45f).background(Brush.linearGradient(listOf(PM.GoldLight, PM.Gold, PM.GoldDeep))),
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Filled.Favorite, null, tint = PM.Black, modifier = Modifier.size(120.dp)) }
+                    else -> MosaicCover(
+                        if (type == ContextType.ARTIST || type == ContextType.ALBUM) tracks.take(1) else tracks,
+                        Modifier.fillMaxSize().fadeBottom(0.45f),
+                        RectangleShape,
+                        seed = ctx.title,
                     )
+                }
+                Box(
+                    Modifier.fillMaxWidth().height(140.dp)
+                        .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent))),
+                )
+                Row(
+                    Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = PM.s4, vertical = PM.s2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    GlassCircleButton(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", nav.back, size = 42.dp)
+                    Spacer(Modifier.weight(1f))
+                    if (isPlaylist) {
+                        Box {
+                            GlassCircleButton(Icons.Filled.MoreHoriz, "Mais", { menuOpen = true }, size = 42.dp)
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = PM.Surface) {
+                                DropdownMenuItem(text = { Text("Renomear") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menuOpen = false; renaming = true })
+                                DropdownMenuItem(text = { Text("Excluir playlist") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = { menuOpen = false; deleting = true })
+                            }
+                        }
+                    }
+                }
+                Column(
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = PM.s6),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        ctx.title, style = MaterialTheme.typography.displaySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         "${shelf.subtitle} • ${formatTotal(totalMs)}",
-                        style = MaterialTheme.typography.bodyMedium, color = PM.TextDim,
-                        modifier = Modifier.padding(horizontal = PM.s4),
+                        style = MaterialTheme.typography.bodyMedium, color = PM.SilverLight, textAlign = TextAlign.Center,
                     )
                 }
             }
         }
 
         item {
+            // botões centralizados: fixar · PLAY grande · aleatório (+ adicionar, nas playlists)
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = PM.s2, vertical = PM.s2),
+                Modifier.fillMaxWidth().padding(vertical = PM.s4),
+                horizontalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (type != ContextType.LIKED) {
-                    IconButton(onClick = { vm.togglePin(ctx.key) }) {
-                        Icon(if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin, if (pinned) "Desafixar" else "Fixar", tint = if (pinned) PM.Gold else PM.TextDim)
-                    }
+                    GlassCircleButton(
+                        if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin, if (pinned) "Desafixar" else "Fixar",
+                        { vm.togglePin(ctx.key) }, tint = if (pinned) PM.Gold else PM.Text,
+                    )
                 }
-                if (isPlaylist) {
-                    IconButton(onClick = { addingSongs = true }) { Icon(Icons.Filled.AddCircleOutline, "Adicionar músicas", tint = PM.TextDim) }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Filled.MoreVert, "Mais", tint = PM.TextDim) }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(text = { Text("Renomear") }, leadingIcon = { Icon(Icons.Filled.Edit, null) }, onClick = { menuOpen = false; renaming = true })
-                            DropdownMenuItem(text = { Text("Excluir playlist") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = { menuOpen = false; deleting = true })
-                        }
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { vm.play(ctx, tracks, -1, shuffle = true) }, enabled = tracks.isNotEmpty()) {
-                    Icon(Icons.Filled.Shuffle, "Tocar no aleatório", tint = if (tracks.isEmpty()) PM.Divider else PM.Gold, modifier = Modifier.size(28.dp))
-                }
-                Spacer(Modifier.width(PM.s2))
                 Box(
-                    Modifier.size(56.dp).background(GoldBrush, CircleShape)
+                    Modifier.size(68.dp).clip(CircleShape).background(PM.Text)
                         .clickable(enabled = tracks.isNotEmpty()) { vm.play(ctx, tracks, 0, shuffle = false) },
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Filled.PlayArrow, "Tocar", tint = PM.Black, modifier = Modifier.size(32.dp)) }
-                Spacer(Modifier.width(PM.s2))
+                ) { Icon(Icons.Filled.PlayArrow, "Tocar", tint = PM.Black, modifier = Modifier.size(40.dp)) }
+                GlassCircleButton(
+                    Icons.Filled.Shuffle, "Tocar no aleatório",
+                    { vm.play(ctx, tracks, -1, shuffle = true) }, enabled = tracks.isNotEmpty(),
+                )
+                if (isPlaylist) GlassCircleButton(Icons.Filled.Add, "Adicionar músicas", { addingSongs = true })
             }
         }
 
@@ -288,7 +316,7 @@ private fun AddSongsSheet(vm: AppViewModel, playlistId: String, onDismiss: () ->
                             .padding(horizontal = PM.s4, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Cover(t.artUri, Modifier.size(44.dp), RoundedCornerShape(4.dp), seed = t.album)
+                        Cover(t.artUri, Modifier.size(44.dp), RoundedCornerShape(8.dp), seed = t.album)
                         Spacer(Modifier.width(PM.s3))
                         Column(Modifier.weight(1f)) {
                             Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)

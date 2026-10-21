@@ -15,6 +15,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import com.lorranamorim.playmix.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,7 +43,15 @@ object PM {
     val s4 = 16.dp
     val s6 = 24.dp
     val s8 = 32.dp
+
+    /** Cantos grandes e arredondados, no estilo "liquid glass". */
+    val rCard = 20.dp
+    val rTile = 14.dp
+    val rSmall = 10.dp
 }
+
+/** Cor ambiente: tirada da capa da música que está tocando; tinge o fundo do app inteiro. */
+val LocalAmbient = androidx.compose.runtime.staticCompositionLocalOf { PM.GoldDeep }
 
 private val scheme = darkColorScheme(
     primary = PM.Gold,
@@ -62,23 +73,43 @@ private val scheme = darkColorScheme(
     outline = PM.Divider,
 )
 
+/** Fonte aberta (OFL) no estilo dos apps de música modernos. */
+val Jakarta = FontFamily(
+    Font(R.font.jakarta_regular, FontWeight.Normal),
+    Font(R.font.jakarta_medium, FontWeight.Medium),
+    Font(R.font.jakarta_semibold, FontWeight.SemiBold),
+    Font(R.font.jakarta_bold, FontWeight.Bold),
+    Font(R.font.jakarta_extrabold, FontWeight.ExtraBold),
+)
+
+private fun t(size: Int, weight: FontWeight = FontWeight.Normal, spacing: Float = 0f, line: Int = 0) = TextStyle(
+    fontFamily = Jakarta,
+    fontSize = size.sp,
+    fontWeight = weight,
+    letterSpacing = spacing.sp,
+    lineHeight = if (line > 0) line.sp else TextStyle.Default.lineHeight,
+)
+
 private val typography = Typography(
-    headlineLarge = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
-    headlineMedium = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
-    titleLarge = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
-    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
-    titleSmall = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontSize = 16.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp),
-    bodySmall = TextStyle(fontSize = 12.sp),
-    labelLarge = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+    displaySmall = t(36, FontWeight.ExtraBold, -1f, 42),
+    headlineLarge = t(32, FontWeight.ExtraBold, -0.8f, 38),
+    headlineMedium = t(26, FontWeight.Bold, -0.5f, 32),
+    headlineSmall = t(22, FontWeight.Bold, -0.3f, 28),
+    titleLarge = t(20, FontWeight.Bold, -0.2f, 26),
+    titleMedium = t(16, FontWeight.SemiBold, 0f, 22),
+    titleSmall = t(14, FontWeight.SemiBold, 0f, 20),
+    bodyLarge = t(16, FontWeight.Normal, 0f, 22),
+    bodyMedium = t(14, FontWeight.Normal, 0f, 20),
+    bodySmall = t(12, FontWeight.Medium, 0f, 16),
+    labelLarge = t(14, FontWeight.SemiBold),
+    labelMedium = t(12, FontWeight.SemiBold),
+    labelSmall = t(11, FontWeight.SemiBold, 0.5f),
 )
 
 @Composable
 fun PlayMixTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = scheme, typography = typography) {
-        // texto claro por padrão em todas as telas
+        // texto claro e fonte da marca por padrão em todas as telas
         CompositionLocalProvider(LocalContentColor provides PM.Text, content = content)
     }
 }

@@ -50,7 +50,7 @@ import com.lorranamorim.playmix.ui.theme.PM
 fun Cover(
     uri: Uri?,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(6.dp),
+    shape: Shape = RoundedCornerShape(PM.rTile),
     fallbackIcon: ImageVector = Icons.Filled.MusicNote,
     seed: String = "",
 ) {
@@ -86,7 +86,7 @@ private fun CoverFallback(icon: ImageVector, seed: String) {
 
 /** Capa de playlist: mosaico com até 4 capas. */
 @Composable
-fun MosaicCover(tracks: List<Track>, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(6.dp), seed: String = "") {
+fun MosaicCover(tracks: List<Track>, modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(PM.rTile), seed: String = "") {
     val distinct = tracks.distinctBy { it.albumId }
     Box(modifier.clip(shape)) {
         when {
@@ -109,22 +109,24 @@ fun MosaicCover(tracks: List<Track>, modifier: Modifier = Modifier, shape: Shape
 /** Capa certa para cada tipo de item (curtidas, playlist, álbum, artista, mix). */
 @Composable
 fun ContextCover(type: ContextType, tracks: List<Track>, size: Dp, seed: String, modifier: Modifier = Modifier) {
+    // cantos proporcionais: cartões grandes ficam bem arredondados
+    val shape = RoundedCornerShape(if (size >= 100.dp) PM.rCard else if (size >= 50.dp) PM.rTile else PM.rSmall)
     when (type) {
         ContextType.LIKED -> Box(
-            modifier.size(size).clip(RoundedCornerShape(6.dp))
+            modifier.size(size).clip(shape)
                 .background(Brush.linearGradient(listOf(PM.GoldLight, PM.Gold, PM.GoldDeep))),
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Favorite, null, tint = PM.Black, modifier = Modifier.size(size * 0.4f)) }
         ContextType.ARTIST -> Cover(tracks.firstOrNull()?.artUri, modifier.size(size), CircleShape, Icons.Filled.Person, seed)
         ContextType.GENRE -> Box(modifier.size(size)) {
-            MosaicCover(tracks, Modifier.fillMaxSize(), seed = seed)
+            MosaicCover(tracks, Modifier.fillMaxSize(), shape, seed = seed)
             Box(
-                Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp))
+                Modifier.fillMaxSize().clip(shape)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, PM.Gold.copy(alpha = 0.55f)))),
             )
             Icon(Icons.Filled.GraphicEq, null, tint = PM.Text, modifier = Modifier.align(Alignment.BottomStart).size(size * 0.28f))
         }
-        else -> MosaicCover(tracks, modifier.size(size), seed = seed)
+        else -> MosaicCover(tracks, modifier.size(size), shape, seed = seed)
     }
 }
 

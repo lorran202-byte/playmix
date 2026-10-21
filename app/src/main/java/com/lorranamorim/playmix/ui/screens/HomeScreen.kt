@@ -56,7 +56,15 @@ import com.lorranamorim.playmix.ui.components.SectionTitle
 import com.lorranamorim.playmix.ui.components.ShelfCard
 import com.lorranamorim.playmix.ui.components.TrackCard
 import com.lorranamorim.playmix.ui.theme.PM
-import com.lorranamorim.playmix.ui.theme.glass
+import com.lorranamorim.playmix.ui.theme.GoldBrush
+import com.lorranamorim.playmix.ui.components.GlassCircleButton
+import com.lorranamorim.playmix.ui.components.GlassPill
+import com.lorranamorim.playmix.ui.components.GlassRim
+import com.lorranamorim.playmix.ui.components.frost
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Shuffle
 import java.util.Calendar
 
 @Composable
@@ -67,34 +75,27 @@ fun HomeScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
     var showProfile by remember { mutableStateOf(false) }
     if (showProfile) ProfileDialog(vm) { showProfile = false }
 
-    Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(0f to PM.GoldDeep.copy(alpha = 0.28f), 0.35f to PM.Bg),
-        ),
-    ) {
+    Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomSpace + 24.dp)) {
             item {
+                // marca à esquerda, foto de perfil à direita
                 Row(
-                    Modifier.statusBarsPadding().fillMaxWidth().padding(start = PM.s4, end = PM.s2, top = PM.s3),
+                    Modifier.statusBarsPadding().fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ProfileAvatar(vm, 44.dp, Modifier.clickable { showProfile = true })
-                    Spacer(Modifier.width(PM.s3))
-                    Column(Modifier.weight(1f).clickable { showProfile = true }) {
-                        val name = data.settings.profileName.trim()
-                        Text(
-                            if (name.isBlank()) greeting() else "${greeting()},",
-                            style = if (name.isBlank()) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleMedium,
-                            color = if (name.isBlank()) PM.Text else PM.TextDim,
-                        )
-                        if (name.isNotBlank()) {
-                            Text(name, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        } else {
-                            Text("Toque para criar seu perfil", style = MaterialTheme.typography.bodySmall, color = PM.TextDim)
-                        }
-                    }
-                    IconButton(onClick = nav.settings) { Icon(Icons.Outlined.Settings, "Configurações", tint = PM.Text) }
+                    Text(
+                        "PlayMix",
+                        style = MaterialTheme.typography.headlineLarge.copy(brush = GoldBrush),
+                        modifier = Modifier.weight(1f),
+                    )
+                    ProfileAvatar(vm, 42.dp, Modifier.clickable { showProfile = true })
                 }
+                val name = data.settings.profileName.trim()
+                Text(
+                    if (name.isBlank()) greeting() else "${greeting()}, ${name.substringBefore(' ')}",
+                    style = MaterialTheme.typography.titleMedium, color = PM.TextDim,
+                    modifier = Modifier.padding(start = 20.dp, top = 2.dp, bottom = 6.dp).clickable { showProfile = true },
+                )
             }
 
             when {
@@ -105,6 +106,24 @@ fun HomeScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
                 }
                 lib.tracks.isEmpty() -> item { EmptyLibrary { vm.refreshLibrary() } }
                 else -> {
+                    // destaque: cartões grandes com os mixes do dia
+                    val heroes = home.mixes.ifEmpty { home.shortcuts.filter { it.ctx.type != ContextType.LIKED && it.ctx.type != ContextType.ARTIST } }.take(8)
+                    if (heroes.isNotEmpty()) item {
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = PM.s3, bottom = PM.s3),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("Seu mix do dia", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                            GlassPill("Tocar tudo", {
+                                vm.playContext(PlayContext(ContextType.ALL, "all", "Todas as músicas"), shuffle = true)
+                            }, leading = Icons.Filled.Shuffle)
+                        }
+                        LazyRow(contentPadding = PaddingValues(horizontal = PM.s4), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            items(heroes, key = { "hero" + it.ctx.key }) { s -> HeroCard(s, onOpen = { nav.open(s.ctx) }, onPlay = { vm.playContext(s.ctx) }) }
+                        }
+                    }
+
+                    item { SectionTitle("Atalhos", Modifier.padding(top = PM.s4)) }
                     item { Shortcuts(home.shortcuts, nav) }
 
                     if (home.recentTracks.isNotEmpty()) item {
@@ -157,10 +176,10 @@ private fun Shortcuts(items: List<Shelf>, nav: Nav) {
             Row(horizontalArrangement = Arrangement.spacedBy(PM.s2)) {
                 row.forEach { s ->
                     Row(
-                        Modifier.weight(1f).height(56.dp).glass(RoundedCornerShape(6.dp)).clickable { nav.open(s.ctx) },
+                        Modifier.weight(1f).height(60.dp).frost(RoundedCornerShape(PM.rTile), 0.07f).clickable { nav.open(s.ctx) }.padding(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        ContextCover(s.ctx.type, s.artTracks, 56.dp, s.ctx.title)
+                        ContextCover(s.ctx.type, s.artTracks, 48.dp, s.ctx.title)
                         Text(
                             s.ctx.title, style = MaterialTheme.typography.titleSmall,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -179,7 +198,7 @@ private fun TrackShelf(title: String, tracks: List<Track>, onPlay: (Int) -> Unit
     Column {
         SectionTitle(title, Modifier.padding(top = PM.s3))
         LazyRow(contentPadding = PaddingValues(horizontal = PM.s4), horizontalArrangement = Arrangement.spacedBy(PM.s3)) {
-            itemsIndexed(tracks, key = { i, t -> "$i-${t.id}" }) { i, t -> TrackCard(t, 140.dp) { onPlay(i) } }
+            itemsIndexed(tracks, key = { i, t -> "$i-${t.id}" }) { i, t -> TrackCard(t, 150.dp) { onPlay(i) } }
         }
     }
 }
@@ -189,7 +208,30 @@ private fun ShelfShelf(title: String, shelves: List<Shelf>, nav: Nav) {
     Column {
         SectionTitle(title, Modifier.padding(top = PM.s3))
         LazyRow(contentPadding = PaddingValues(horizontal = PM.s4), horizontalArrangement = Arrangement.spacedBy(PM.s3)) {
-            items(shelves, key = { it.ctx.key }) { s -> ShelfCard(s, 140.dp, { nav.open(s.ctx) }) }
+            items(shelves, key = { it.ctx.key }) { s -> ShelfCard(s, 150.dp, { nav.open(s.ctx) }) }
+        }
+    }
+}
+
+/** Cartão grande do destaque: capa de ponta a ponta, título por cima e botão de play de vidro. */
+@Composable
+private fun HeroCard(s: Shelf, onOpen: () -> Unit, onPlay: () -> Unit) {
+    val shape = RoundedCornerShape(26.dp)
+    Box(
+        Modifier.size(280.dp).clip(shape).border(0.8.dp, GlassRim, shape).clickable(onClick = onOpen),
+    ) {
+        ContextCover(s.ctx.type, s.artTracks, 280.dp, s.ctx.title)
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.35f), 0.35f to Color.Transparent, 0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f)),
+            ),
+        )
+        Column(Modifier.align(Alignment.TopStart).padding(16.dp)) {
+            Text(s.ctx.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.subtitle, style = MaterialTheme.typography.bodySmall, color = PM.SilverLight, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            GlassCircleButton(Icons.Filled.PlayArrow, "Tocar", onPlay, size = 46.dp)
         }
     }
 }

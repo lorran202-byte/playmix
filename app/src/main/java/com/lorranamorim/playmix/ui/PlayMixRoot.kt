@@ -1,6 +1,23 @@
 package com.lorranamorim.playmix.ui
 
 import android.Manifest
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.draw.clip
+import com.lorranamorim.playmix.ui.components.GlassRim
+import com.lorranamorim.playmix.ui.components.rememberCoverColor
+import com.lorranamorim.playmix.ui.theme.LocalAmbient
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -162,18 +179,35 @@ private fun MainScaffold(vm: AppViewModel) {
         Nav(
             open = { ctx -> expanded = false; nav.openContext(ctx) },
             trackMenu = { t, pl -> menu = t to pl },
-            settings = { nav.navigate("settings") },
+            settings = { nav.goTab("settings") },
             back = { nav.popBackStack() },
         )
     }
 
     BackHandler(enabled = expanded) { expanded = false }
 
+    // cor ambiente: vem da capa que está tocando e tinge o fundo do app todo
+    val ambientRaw = rememberCoverColor(player.current?.mediaMetadata?.artworkUri, PM.GoldDeep)
+    val ambient by animateColorAsState(ambientRaw, tween(900), label = "ambiente")
+
+    CompositionLocalProvider(LocalAmbient provides ambient) {
     Box(Modifier.fillMaxSize().background(PM.Bg)) {
         val hasPlayer = player.current != null
-        val bottomSpace = if (hasPlayer) 140.dp else 76.dp
+        val bottomSpace = if (hasPlayer) 168.dp else 104.dp
 
-        NavHost(nav, startDestination = "home", modifier = Modifier.fillMaxSize().haze(hazeState)) {
+        // tudo aqui dentro é o que o vidro da barra desfoca (fundo ambiente + telas)
+        Box(Modifier.fillMaxSize().haze(hazeState)) {
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to ambient.copy(alpha = 0.55f), 0.45f to ambient.copy(alpha = 0.12f), 1f to PM.Bg),
+            ),
+        )
+        NavHost(
+            nav, startDestination = "home",
+            modifier = Modifier.fillMaxSize(),
+            enterTransition = { fadeIn(tween(220)) },
+            exitTransition = { fadeOut(tween(160)) },
+        ) {
             composable("home") { HomeScreen(vm, actions, bottomSpace) }
             composable("search") { SearchScreen(vm, actions, bottomSpace) }
             composable("library") { LibraryScreen(vm, actions, bottomSpace) }
@@ -187,20 +221,22 @@ private fun MainScaffold(vm: AppViewModel) {
                 if (type != null) CollectionScreen(vm, actions, type, id, bottomSpace)
             }
         }
+        }
 
+        // véu escuro embaixo para a barra flutuante ficar legível sobre qualquer conteúdo
+        Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(bottomSpace + 24.dp)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, PM.Bg.copy(alpha = 0.55f), PM.Bg.copy(alpha = 0.85f)))),
+        )
 
-        // liquid glass: mini player e barra de abas desfocam o que passa por trás
+        // barra flutuante de vidro (liquid glass): mini player + abas + busca
         Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .hazeChild(hazeState, style = HazeMaterials.ultraThin(PM.Bg))
-                .border(width = 0.5.dp, brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.25f), Color.Transparent)), shape = RectangleShape)
-                .navigationBarsPadding()
-                .padding(top = 6.dp),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()
+                .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (hasPlayer) {
-                MiniPlayer(vm, onExpand = { expanded = true })
-            }
-            BottomBar(nav)
+            if (hasPlayer) MiniPlayer(vm, hazeState, onExpand = { expanded = true })
+            FloatingNavBar(nav, hazeState)
         }
 
         AnimatedVisibility(
@@ -227,19 +263,67 @@ private fun MainScaffold(vm: AppViewModel) {
             )
         }
     }
+    }
 }
 
+/** Pílula de vidro com as abas + botão redondo de busca ao lado, como nos players "liquid glass". */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-private fun BottomBar(nav: NavController) {
+private fun FloatingNavBar(nav: NavController, haze: HazeState) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
-    Row(
-        Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-    ) {
-        TabItem("Início", Icons.Filled.Home, Icons.Outlined.Home, route == "home") { nav.goTab("home") }
-        TabItem("Buscar", Icons.Filled.Search, Icons.Outlined.Search, route == "search") { nav.goTab("search") }
-        TabItem("Sua Biblioteca", Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic, route == "library") { nav.goTab("library") }
+    val tabs = listOf(
+        Triple("home", "Início", Icons.Filled.Home to Icons.Outlined.Home),
+        Triple("library", "Biblioteca", Icons.Filled.LibraryMusic to Icons.Outlined.LibraryMusic),
+        Triple("settings", "Ajustes", Icons.Filled.Settings to Icons.Outlined.Settings),
+    )
+    val selectedIdx = tabs.indexOfFirst { it.first == route }
+    val pill = RoundedCornerShape(50)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        BoxWithConstraints(
+            Modifier.weight(1f).height(64.dp)
+                .clip(pill)
+                .hazeChild(haze, style = HazeMaterials.thin(Color(0xFF1C1C1F)))
+                .border(0.8.dp, GlassRim, pill)
+                .padding(5.dp),
+        ) {
+            val slot = maxWidth / tabs.size
+            // "bolha" que desliza até a aba escolhida
+            val x by animateDpAsState(
+                slot * selectedIdx.coerceAtLeast(0),
+                spring(dampingRatio = 0.72f, stiffness = 420f), label = "bolha",
+            )
+            if (selectedIdx >= 0) {
+                Box(
+                    Modifier.offset(x = x).width(slot).fillMaxHeight()
+                        .clip(pill)
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .border(0.8.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.35f), Color.Transparent)), pill),
+                )
+            }
+            Row(Modifier.fillMaxSize()) {
+                tabs.forEachIndexed { i, (r, label, icons) ->
+                    val on = i == selectedIdx
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().clip(pill).clickable { nav.goTab(r) },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(if (on) icons.first else icons.second, label, tint = if (on) PM.Gold else PM.Text, modifier = Modifier.size(24.dp))
+                        Text(label, style = MaterialTheme.typography.labelSmall, color = if (on) PM.Text else PM.TextDim)
+                    }
+                }
+            }
+        }
+        val searchOn = route == "search"
+        Box(
+            Modifier.size(64.dp).clip(CircleShape)
+                .hazeChild(haze, style = HazeMaterials.thin(Color(0xFF1C1C1F)))
+                .background(if (searchOn) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+                .border(0.8.dp, GlassRim, CircleShape)
+                .clickable { nav.goTab("search") },
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Filled.Search, "Buscar", tint = if (searchOn) PM.Gold else PM.Text, modifier = Modifier.size(28.dp)) }
     }
 }
 
@@ -251,13 +335,3 @@ private fun NavController.goTab(route: String) {
     }
 }
 
-@Composable
-private fun TabItem(label: String, selected: ImageVector, normal: ImageVector, isSelected: Boolean, onClick: () -> Unit) {
-    Column(
-        Modifier.clickable(onClick = onClick).padding(horizontal = PM.s4, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(if (isSelected) selected else normal, label, tint = if (isSelected) PM.Gold else PM.TextDim, modifier = Modifier.size(26.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = if (isSelected) PM.Text else PM.TextDim)
-    }
-}

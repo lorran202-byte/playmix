@@ -71,7 +71,7 @@ fun TrackMenuSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = PM.Surface) {
         Column(Modifier.navigationBarsPadding().padding(bottom = PM.s4)) {
             Row(Modifier.padding(horizontal = PM.s4, vertical = PM.s2), verticalAlignment = Alignment.CenterVertically) {
-                Cover(track.artUri, Modifier.size(52.dp), RoundedCornerShape(4.dp), seed = track.album)
+                Cover(track.artUri, Modifier.size(52.dp), RoundedCornerShape(8.dp), seed = track.album)
                 Spacer(Modifier.width(PM.s3))
                 Column(Modifier.weight(1f)) {
                     Text(track.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)

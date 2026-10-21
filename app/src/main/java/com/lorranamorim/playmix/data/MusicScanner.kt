@@ -23,6 +23,8 @@ class MusicScanner(private val context: Context) {
         val hasGenre = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
         if (hasGenre) cols += MediaStore.Audio.Media.GENRE
         val hasRelPath = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        cols += MediaStore.Audio.Media.MIME_TYPE
+        if (hasGenre) cols += MediaStore.Audio.Media.BITRATE
         if (hasRelPath) cols += MediaStore.Audio.Media.RELATIVE_PATH
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 20000"
@@ -41,6 +43,8 @@ class MusicScanner(private val context: Context) {
                 val iData = c.getColumnIndex(MediaStore.Audio.Media.DATA)
                 val iGenre = if (hasGenre) c.getColumnIndex(MediaStore.Audio.Media.GENRE) else -1
                 val iRel = if (hasRelPath) c.getColumnIndex(MediaStore.Audio.Media.RELATIVE_PATH) else -1
+                val iMime = c.getColumnIndex(MediaStore.Audio.Media.MIME_TYPE)
+                val iBitrate = if (hasGenre) c.getColumnIndex(MediaStore.Audio.Media.BITRATE) else -1
 
                 while (c.moveToNext()) {
                     val folder = when {
@@ -63,6 +67,8 @@ class MusicScanner(private val context: Context) {
                         genre = genre,
                         folder = folder,
                         trackNumber = c.getInt(iTrack) % 1000,
+                        format = formatName(if (iMime >= 0) c.getString(iMime) else null, if (iData >= 0) c.getString(iData) else null),
+                        bitrateKbps = if (iBitrate >= 0 && !c.isNull(iBitrate)) c.getInt(iBitrate) / 1000 else 0,
                     )
                 }
             }
@@ -70,5 +76,19 @@ class MusicScanner(private val context: Context) {
             return emptyList()
         }
         return result
+    }
+
+    private fun formatName(mime: String?, path: String?): String {
+        val ext = path?.substringAfterLast('.', "")?.lowercase().orEmpty()
+        return when {
+            ext == "flac" || mime?.contains("flac") == true -> "FLAC"
+            ext == "mp3" || mime == "audio/mpeg" -> "MP3"
+            ext == "m4a" || ext == "aac" || mime?.contains("mp4") == true || mime?.contains("aac") == true -> "AAC"
+            ext == "ogg" || mime?.contains("ogg") == true -> "OGG"
+            ext == "opus" || mime?.contains("opus") == true -> "OPUS"
+            ext == "wav" || mime?.contains("wav") == true -> "WAV"
+            ext.isNotBlank() -> ext.uppercase()
+            else -> ""
+        }
     }
 }

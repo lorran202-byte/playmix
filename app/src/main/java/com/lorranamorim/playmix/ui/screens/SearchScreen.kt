@@ -46,6 +46,7 @@ import com.lorranamorim.playmix.data.PlayContext
 import com.lorranamorim.playmix.ui.AppViewModel
 import com.lorranamorim.playmix.ui.Nav
 import com.lorranamorim.playmix.ui.components.SectionTitle
+import com.lorranamorim.playmix.ui.components.frost
 import com.lorranamorim.playmix.ui.components.ShelfRow
 import com.lorranamorim.playmix.ui.components.TrackRow
 import com.lorranamorim.playmix.ui.theme.PM
@@ -81,37 +82,37 @@ fun SearchScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
         }
     }
 
-    LazyColumn(Modifier.fillMaxSize().background(PM.Bg), contentPadding = PaddingValues(bottom = bottomSpace + 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomSpace + 24.dp)) {
         item {
             Text(
-                "Buscar", style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.statusBarsPadding().padding(start = PM.s4, top = PM.s3, bottom = PM.s3),
+                "buscar", style = MaterialTheme.typography.displaySmall,
+                modifier = Modifier.statusBarsPadding().padding(start = 20.dp, top = PM.s4, bottom = PM.s4),
             )
         }
         item {
             TextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("O que você quer ouvir?", color = Color(0xFF444448)) },
-                leadingIcon = { Icon(Icons.Filled.Search, null, tint = Color(0xFF222225)) },
+                placeholder = { Text("Músicas, artistas, álbuns…", color = PM.TextDim) },
+                leadingIcon = { Icon(Icons.Filled.Search, null, tint = PM.Silver) },
                 trailingIcon = {
-                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, "Limpar", tint = Color(0xFF222225)) }
+                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, "Limpar", tint = PM.Silver) }
                 },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = PM.Text, unfocusedContainerColor = PM.Text,
-                    focusedTextColor = PM.Black, unfocusedTextColor = PM.Black,
+                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = PM.Text, unfocusedTextColor = PM.Text,
                     focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = PM.GoldDeep,
+                    cursorColor = PM.Gold,
                 ),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = PM.s4),
+                shape = RoundedCornerShape(50),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = PM.s4).frost(RoundedCornerShape(50)),
             )
         }
 
         if (results == null) {
-            item { SectionTitle("Navegar por tudo", Modifier.padding(top = PM.s3)) }
+            item { SectionTitle("Para você", Modifier.padding(top = PM.s4)) }
             val tiles = buildList {
                 add(PlayContext(ContextType.ALL, "all", "Todas as músicas"))
                 add(PlayContext(ContextType.LIKED, "liked", "Curtidas"))
@@ -121,13 +122,16 @@ fun SearchScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
                 Row(Modifier.padding(horizontal = PM.s4, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { ctx ->
                         val color = tileColors[(ctx.title.hashCode() and 0x7fffffff) % tileColors.size]
+                        // bloco de vidro escuro com um brilho colorido no canto
                         Box(
-                            Modifier.weight(1f).height(96.dp).clip(RoundedCornerShape(8.dp))
-                                .background(Brush.linearGradient(listOf(color, color.copy(alpha = 0.6f))))
+                            Modifier.weight(1f).height(72.dp)
+                                .frost(RoundedCornerShape(PM.rTile), 0.06f)
+                                .background(Brush.radialGradient(listOf(color.copy(alpha = 0.55f), Color.Transparent), radius = 260f, center = androidx.compose.ui.geometry.Offset(0f, 0f)))
                                 .clickable { nav.open(ctx) }
-                                .padding(PM.s3),
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.CenterStart,
                         ) {
-                            Text(ctx.title, style = MaterialTheme.typography.titleMedium, color = PM.Text)
+                            Text(ctx.title, style = MaterialTheme.typography.titleSmall, color = PM.Text, maxLines = 2)
                         }
                     }
                     if (row.size == 1) Spacer(Modifier.weight(1f))

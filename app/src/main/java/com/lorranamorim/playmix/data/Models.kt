@@ -15,7 +15,13 @@ data class Track(
     val genre: String?,
     val folder: String,
     val trackNumber: Int,
+    /** Formato do arquivo (ex.: "MP3", "FLAC") e qualidade em kbps (0 = desconhecida). */
+    val format: String = "",
+    val bitrateKbps: Int = 0,
 ) {
+    /** Selo de qualidade mostrado no player, ex.: "FLAC • 1024 kbps". */
+    val qualityLabel: String get() = listOfNotNull(format.takeIf { it.isNotBlank() }, bitrateKbps.takeIf { it > 0 }?.let { "$it kbps" }).joinToString(" • ")
+
     val key: String get() = id.toString()
     /** Cada artista da faixa separado (participações viram artistas próprios). */
     val artists: List<String> get() = splitArtists(artist)

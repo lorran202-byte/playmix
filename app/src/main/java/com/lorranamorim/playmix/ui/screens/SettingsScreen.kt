@@ -53,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lorranamorim.playmix.ui.AppViewModel
 import com.lorranamorim.playmix.ui.Nav
 import com.lorranamorim.playmix.ui.components.SectionTitle
+import com.lorranamorim.playmix.ui.components.ScreenHeader
 import com.lorranamorim.playmix.ui.theme.PM
 
 @Composable
@@ -67,12 +68,9 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
     }
     var fade by remember(data.settings.fadeSeconds) { mutableFloatStateOf(data.settings.fadeSeconds.toFloat()) }
 
-    LazyColumn(Modifier.fillMaxSize().background(PM.Bg), contentPadding = PaddingValues(bottom = bottomSpace + 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomSpace + 24.dp)) {
         item {
-            Row(Modifier.statusBarsPadding().fillMaxWidth().padding(PM.s2), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = nav.back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") }
-                Text("Configurações", style = MaterialTheme.typography.titleLarge)
-            }
+            ScreenHeader("Ajustes")
         }
 
         item { SectionTitle("Reprodução") }

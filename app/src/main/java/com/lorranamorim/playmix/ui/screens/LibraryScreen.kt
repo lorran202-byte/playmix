@@ -65,6 +65,12 @@ import com.lorranamorim.playmix.ui.AppViewModel
 import com.lorranamorim.playmix.ui.Nav
 import com.lorranamorim.playmix.ui.Shelf
 import com.lorranamorim.playmix.ui.components.ProfileAvatar
+import com.lorranamorim.playmix.ui.components.GlassCircleButton
+import com.lorranamorim.playmix.ui.components.GlassPill
+import com.lorranamorim.playmix.ui.components.GlassSegmented
+import com.lorranamorim.playmix.ui.components.ScreenHeader
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import com.lorranamorim.playmix.ui.components.ProfileDialog
 import com.lorranamorim.playmix.ui.components.NameDialog
 import com.lorranamorim.playmix.ui.components.ShelfCard
@@ -123,37 +129,35 @@ fun LibraryScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
         Toast.makeText(context, if (was) "Desafixado" else "Fixado no topo", Toast.LENGTH_SHORT).show()
     }
 
-    Column(Modifier.fillMaxSize().background(PM.Bg).statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(start = PM.s4, end = PM.s2, top = PM.s3), verticalAlignment = Alignment.CenterVertically) {
-            ProfileAvatar(vm, 34.dp, Modifier.clickable { showProfile = true })
-            Spacer(Modifier.width(PM.s3))
-            Text("Sua Biblioteca", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, "Criar playlist", tint = PM.Text) }
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Biblioteca") {
+            GlassCircleButton(Icons.Filled.Add, "Criar playlist", { creating = true }, size = 42.dp)
+            ProfileAvatar(vm, 42.dp, Modifier.clickable { showProfile = true })
         }
+        // filtros em pílulas de vidro
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = PM.s4, vertical = PM.s3),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = PM.s4, vertical = PM.s2),
             horizontalArrangement = Arrangement.spacedBy(PM.s2), verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (f != null) {
-                Box(
-                    Modifier.size(32.dp).background(PM.SurfaceHigh, RoundedCornerShape(50)).clickable { filter = null },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Filled.Close, "Limpar filtro", tint = PM.Text, modifier = Modifier.size(18.dp)) }
-            }
+            if (f != null) GlassCircleButton(Icons.Filled.Close, "Limpar filtro", { filter = null }, size = 38.dp)
             LibFilter.entries.forEach { lf ->
-                if (f == null || f == lf) Chip(lf.label, selected = f == lf) { filter = if (f == lf) null else lf.name }
+                if (f == null || f == lf) GlassPill(lf.label, { filter = if (f == lf) null else lf.name }, selected = f == lf)
             }
         }
 
         if (f != LibFilter.SONGS) {
-            Row(Modifier.fillMaxWidth().padding(start = PM.s4, end = PM.s2), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = PM.s4, end = PM.s4, top = 4.dp, bottom = PM.s3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // ordenação: pílula com o critério + círculo com a setinha
                 Box {
-                    Row(Modifier.clickable { sortMenu = true }.padding(vertical = PM.s2), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.Sort, null, tint = PM.Text, modifier = Modifier.size(18.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        GlassPill(settings.sort.label, { sortMenu = true })
                         Spacer(Modifier.width(6.dp))
-                        Text(settings.sort.label, style = MaterialTheme.typography.labelLarge)
+                        GlassCircleButton(Icons.Filled.KeyboardArrowDown, "Ordenar", { sortMenu = true }, size = 38.dp)
                     }
-                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                    DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }, containerColor = PM.Surface) {
                         LibrarySort.entries.forEach { s ->
                             DropdownMenuItem(
                                 text = { Text(s.label, color = if (s == settings.sort) PM.Gold else PM.Text) },
@@ -163,27 +167,27 @@ fun LibraryScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { vm.updateSettings { it.copy(gridMode = !it.gridMode) } }) {
-                    Icon(
-                        if (settings.gridMode) Icons.AutoMirrored.Filled.List else Icons.Filled.GridView,
-                        if (settings.gridMode) "Ver em lista" else "Ver em grade", tint = PM.Text,
-                    )
-                }
+                GlassSegmented(
+                    options = listOf(Icons.AutoMirrored.Filled.List to "Ver em lista", Icons.Filled.GridView to "Ver em grade"),
+                    selected = if (settings.gridMode) 1 else 0,
+                    onSelect = { i -> vm.updateSettings { it.copy(gridMode = i == 1) } },
+                )
             }
         }
 
         when {
             f == LibFilter.SONGS -> SongsWithIndex(vm, nav, bottomSpace, player.currentId, data.liked.toSet())
             settings.gridMode -> LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(2),
                 contentPadding = PaddingValues(start = PM.s4, end = PM.s4, bottom = bottomSpace + 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(PM.s3),
-                verticalArrangement = Arrangement.spacedBy(PM.s4),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 items(shelves, key = { it.ctx.key }) { s ->
-                    Box(Modifier.fillMaxWidth()) {
-                        ShelfCard(s, 104.dp, { nav.open(s.ctx) }, { togglePin(s) })
+                    // cartões grandes que ocupam a coluna inteira
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        ShelfCard(s, maxWidth, { nav.open(s.ctx) }, { togglePin(s) })
                     }
                 }
             }

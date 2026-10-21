@@ -64,7 +64,7 @@ fun TrackRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showArt) {
-            Cover(track.artUri, Modifier.size(48.dp), RoundedCornerShape(4.dp), seed = track.album)
+            Cover(track.artUri, Modifier.size(50.dp), RoundedCornerShape(PM.rSmall), seed = track.album)
             Spacer(Modifier.width(PM.s3))
         } else if (number != null) {
             Text(
@@ -154,7 +154,7 @@ fun ShelfCard(shelf: Shelf, size: androidx.compose.ui.unit.Dp, onClick: () -> Un
 @Composable
 fun TrackCard(track: Track, size: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {
     Column(Modifier.width(size).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Cover(track.artUri, Modifier.size(size), RoundedCornerShape(6.dp), seed = track.album)
+        Cover(track.artUri, Modifier.size(size), RoundedCornerShape(PM.rCard), seed = track.album)
         Text(track.title, style = MaterialTheme.typography.titleSmall, color = PM.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(track.artist, style = MaterialTheme.typography.bodySmall, color = PM.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

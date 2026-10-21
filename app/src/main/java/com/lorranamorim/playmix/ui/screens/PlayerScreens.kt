@@ -111,6 +111,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Lyrics
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import com.lorranamorim.playmix.ui.components.GlassRim
+import com.lorranamorim.playmix.ui.components.GlassCircleButton
+import com.lorranamorim.playmix.ui.components.frost
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
@@ -137,22 +144,24 @@ private val MediaItem.artistText get() = mediaMetadata.artist?.toString() ?: ""
 
 // ======================= MINI PLAYER =======================
 
+/** Mini player flutuante: pílula de vidro com capa, título, play e próxima. */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-fun MiniPlayer(vm: AppViewModel, onExpand: () -> Unit) {
+fun MiniPlayer(vm: AppViewModel, haze: HazeState, onExpand: () -> Unit) {
     val player by vm.player.collectAsStateWithLifecycle()
-    val data by vm.data.collectAsStateWithLifecycle()
     val item = player.current ?: return
-    val id = player.currentId
     val pos = rememberPositionMs(vm)
     val tint = rememberCoverColor(item.mediaMetadata.artworkUri, PM.SurfaceHigh)
     var dragX by remember { mutableFloatStateOf(0f) }
+    val shape = RoundedCornerShape(50)
 
     Box(
         Modifier
-            .padding(horizontal = PM.s2)
             .fillMaxWidth()
-            .height(60.dp)
-            .glass(RoundedCornerShape(12.dp), tint = tint)
+            .height(62.dp)
+            .clip(shape)
+            .hazeChild(haze, style = HazeMaterials.thin(tint))
+            .border(0.8.dp, GlassRim, shape)
             .clickable(onClick = onExpand)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
@@ -164,30 +173,26 @@ fun MiniPlayer(vm: AppViewModel, onExpand: () -> Unit) {
                 ) { _, delta -> dragX += delta }
             },
     ) {
-        Row(Modifier.fillMaxSize().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Cover(item.mediaMetadata.artworkUri, Modifier.size(44.dp), RoundedCornerShape(4.dp), seed = item.mediaMetadata.albumTitle?.toString() ?: "")
+        // progresso: um brilho dourado que preenche a pílula por baixo
+        val dur = player.durationMs
+        val frac = if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
+        Box(
+            Modifier.fillMaxWidth(frac).fillMaxHeight()
+                .background(Brush.horizontalGradient(listOf(Color.Transparent, PM.Gold.copy(alpha = 0.16f)))),
+        )
+        Row(Modifier.fillMaxSize().padding(start = 9.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Cover(item.mediaMetadata.artworkUri, Modifier.size(44.dp), CircleShape, seed = item.mediaMetadata.albumTitle?.toString() ?: "")
             Spacer(Modifier.width(PM.s3))
             Column(Modifier.weight(1f)) {
                 Text(item.titleText, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(item.artistText, style = MaterialTheme.typography.bodySmall, color = PM.TextDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (id != null) {
-                val liked = data.liked.contains(id)
-                IconButton(onClick = { vm.toggleLike(id) }) {
-                    Icon(if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Curtir", tint = if (liked) PM.Gold else PM.Text)
-                }
-            }
             IconButton(onClick = { vm.playerConn.togglePlay() }) {
                 Icon(if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, if (player.isPlaying) "Pausar" else "Tocar", tint = PM.Text, modifier = Modifier.size(30.dp))
             }
-        }
-        val dur = player.durationMs
-        val frac = if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
-        Box(
-            Modifier.align(Alignment.BottomStart).padding(horizontal = 8.dp).fillMaxWidth().height(2.dp)
-                .background(Color.White.copy(alpha = 0.15f)),
-        ) {
-            Box(Modifier.fillMaxWidth(frac).height(2.dp).background(PM.Gold))
+            IconButton(onClick = { vm.playerConn.next() }) {
+                Icon(Icons.Filled.FastForward, "Próxima", tint = PM.Text, modifier = Modifier.size(28.dp))
+            }
         }
     }
 }
@@ -257,136 +262,159 @@ fun NowPlayingScreen(
                 )
 
 
-                // topo
+                // topo: botões redondos de vidro
                 Row(
-                    Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = PM.s2),
+                    Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = PM.s4, vertical = PM.s2),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onCollapse) { Icon(Icons.Filled.KeyboardArrowDown, "Minimizar", tint = PM.Text, modifier = Modifier.size(32.dp)) }
+                    GlassCircleButton(Icons.Filled.KeyboardArrowDown, "Minimizar", onCollapse, size = 42.dp)
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("TOCANDO DE", style = MaterialTheme.typography.labelMedium, color = PM.Text.copy(alpha = 0.75f), letterSpacing = 1.5.sp)
+                        Text("TOCANDO DE", style = MaterialTheme.typography.labelSmall, color = PM.Text.copy(alpha = 0.75f), letterSpacing = 1.5.sp)
                         Text(
                             player.contextTitle.ifBlank { "Sua biblioteca" },
                             style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    IconButton(onClick = { track?.let(onTrackMenu) }, enabled = track != null) {
-                        Icon(Icons.Filled.MoreVert, "Mais opções", tint = PM.Text)
-                    }
+                    GlassCircleButton(Icons.AutoMirrored.Filled.QueueMusic, "Fila", { showQueue = true }, size = 42.dp)
                 }
 
                 // mini aba da letra, logo acima do nome da música
                 LyricsPill(
                     lyrics, pos, coverHaze,
                     onClick = { showLyrics = true },
-                    modifier = Modifier.align(Alignment.BottomStart).padding(start = PM.s4, end = PM.s4, bottom = 88.dp),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = PM.s4, end = PM.s4, bottom = 92.dp),
                 )
 
-                // título + curtir, sobre o degradê
+                // título em destaque, artista em caixa alta; à direita, botões redondos de vidro
                 Row(
                     Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = PM.s6, end = PM.s4, bottom = PM.s2),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(item.titleText, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.titleText, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            item.artistText, style = MaterialTheme.typography.bodyLarge, color = PM.Text.copy(alpha = 0.75f), maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            item.artistText.uppercase(), style = MaterialTheme.typography.labelLarge, letterSpacing = 0.8.sp,
+                            color = PM.Text.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.clickable(enabled = track != null) {
                                 track?.let { onOpen(PlayContext(ContextType.ARTIST, it.primaryArtist, it.primaryArtist)) }
                             },
                         )
                     }
+                    Spacer(Modifier.width(PM.s2))
+                    GlassCircleButton(Icons.Filled.MoreHoriz, "Mais opções", { track?.let(onTrackMenu) }, enabled = track != null)
+                    Spacer(Modifier.width(10.dp))
                     if (track != null) {
                         val liked = data.liked.contains(track.id)
-                        IconButton(onClick = { vm.toggleLike(track.id) }) {
-                            Icon(if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Curtir", tint = if (liked) PM.Gold else PM.Text, modifier = Modifier.size(28.dp))
-                        }
+                        GlassCircleButton(
+                            if (liked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder, "Curtir",
+                            { vm.toggleLike(track.id) }, tint = if (liked) PM.Gold else PM.Text,
+                        )
                     }
                 }
             }
 
             // controles: bloco fixo na parte de baixo da tela
-            Column(Modifier.fillMaxWidth().padding(bottom = PM.s6)) {
-            // barra de progresso
-            val frac = dragFrac ?: if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
-            SeekBar(
-                fraction = frac,
-                onDrag = { dragFrac = it },
-                onRelease = {
-                    dragFrac?.let { vm.playerConn.seekTo((it * dur).toLong()) }
-                    dragFrac = null
-                },
-                modifier = Modifier.padding(horizontal = PM.s6).padding(top = PM.s6),
-            )
-            Row(Modifier.fillMaxWidth().padding(horizontal = PM.s6)) {
-                Text(formatTime((frac * dur).toLong()), style = MaterialTheme.typography.bodySmall, color = PM.TextDim)
-                Spacer(Modifier.weight(1f))
-                Text("-" + formatTime(dur - (frac * dur).toLong()), style = MaterialTheme.typography.bodySmall, color = PM.TextDim)
-            }
-
-            // controles fixos (nunca mudam de lugar)
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = PM.s4, vertical = PM.s6),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { vm.playerConn.toggleShuffle() }) {
-                    Icon(Icons.Filled.Shuffle, "Aleatório", tint = if (player.shuffle) PM.Gold else PM.Silver, modifier = Modifier.size(28.dp))
-                }
-                IconButton(onClick = { vm.playerConn.previous() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Icons.Filled.SkipPrevious, "Anterior", tint = PM.SilverLight, modifier = Modifier.size(46.dp))
-                }
-                Box(
-                    Modifier.size(80.dp).clip(CircleShape).background(PM.Text).clickable { vm.playerConn.togglePlay() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        if (player.isPlaying) "Pausar" else "Tocar", tint = PM.Black, modifier = Modifier.size(44.dp),
+            Column(Modifier.fillMaxWidth().padding(bottom = PM.s4)) {
+                // barra de progresso grossa e arredondada
+                val frac = dragFrac ?: if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
+                SeekBar(
+                    fraction = frac,
+                    onDrag = { dragFrac = it },
+                    onRelease = {
+                        dragFrac?.let { vm.playerConn.seekTo((it * dur).toLong()) }
+                        dragFrac = null
+                    },
+                    modifier = Modifier.padding(horizontal = PM.s6).padding(top = PM.s6),
+                )
+                Row(Modifier.fillMaxWidth().padding(horizontal = PM.s6, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(formatTime((frac * dur).toLong()), style = MaterialTheme.typography.bodySmall, color = PM.TextDim, modifier = Modifier.width(56.dp))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        // selo de qualidade do arquivo, no meio
+                        val q = track?.qualityLabel.orEmpty()
+                        if (q.isNotBlank()) {
+                            Row(
+                                Modifier.frost(RoundedCornerShape(8.dp), 0.06f).padding(horizontal = 8.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Filled.GraphicEq, null, tint = PM.Gold, modifier = Modifier.size(12.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(q, style = MaterialTheme.typography.labelSmall, color = PM.SilverLight)
+                            }
+                        }
+                    }
+                    Text(
+                        "-" + formatTime(dur - (frac * dur).toLong()), style = MaterialTheme.typography.bodySmall,
+                        color = PM.TextDim, textAlign = TextAlign.End, modifier = Modifier.width(56.dp),
                     )
                 }
-                IconButton(onClick = { vm.playerConn.next() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Icons.Filled.SkipNext, "Próxima", tint = PM.SilverLight, modifier = Modifier.size(46.dp))
-                }
-                IconButton(onClick = { vm.playerConn.cycleRepeat() }) {
-                    Icon(
-                        if (player.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                        "Repetir", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) PM.Gold else PM.Silver, modifier = Modifier.size(28.dp),
-                    )
-                }
-            }
 
-            // timer + fila
-            Row(Modifier.fillMaxWidth().padding(horizontal = PM.s4), verticalAlignment = Alignment.CenterVertically) {
-                val sleep = player.sleep
+                // controles: ícones grandes e "soltos", sem botão em volta
                 Row(
-                    Modifier.clip(RoundedCornerShape(50)).clickable { showSleep = true }.padding(PM.s2),
+                    Modifier.fillMaxWidth().padding(horizontal = PM.s4, vertical = PM.s4),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.Bedtime, "Timer de soneca", tint = if (sleep != SleepTimer.Off) PM.Gold else PM.TextDim, modifier = Modifier.size(22.dp))
-                    if (sleep != SleepTimer.Off) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(sleepLabel(sleep), style = MaterialTheme.typography.labelMedium, color = PM.Gold)
+                    IconButton(onClick = { vm.playerConn.toggleShuffle() }) {
+                        Icon(Icons.Filled.Shuffle, "Aleatório", tint = if (player.shuffle) PM.Gold else PM.Silver, modifier = Modifier.size(26.dp))
+                    }
+                    IconButton(onClick = { vm.playerConn.previous() }, modifier = Modifier.size(72.dp)) {
+                        Icon(Icons.Filled.FastRewind, "Anterior", tint = PM.Text, modifier = Modifier.size(52.dp))
+                    }
+                    IconButton(onClick = { vm.playerConn.togglePlay() }, modifier = Modifier.size(84.dp)) {
+                        Icon(
+                            if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            if (player.isPlaying) "Pausar" else "Tocar", tint = PM.Text, modifier = Modifier.size(70.dp),
+                        )
+                    }
+                    IconButton(onClick = { vm.playerConn.next() }, modifier = Modifier.size(72.dp)) {
+                        Icon(Icons.Filled.FastForward, "Próxima", tint = PM.Text, modifier = Modifier.size(52.dp))
+                    }
+                    IconButton(onClick = { vm.playerConn.cycleRepeat() }) {
+                        Icon(
+                            if (player.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                            "Repetir", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) PM.Gold else PM.Silver, modifier = Modifier.size(26.dp),
+                        )
                     }
                 }
-                Spacer(Modifier.weight(1f))
-                eqName?.let { name ->
+
+                // fileira de baixo: letra · [EQ | timer] · fila
+                Row(Modifier.fillMaxWidth().padding(horizontal = PM.s6), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { showLyrics = true }) {
+                        Icon(Icons.Filled.Lyrics, "Letra", tint = PM.Silver)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    val sleep = player.sleep
                     Row(
-                        Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
+                        Modifier.frost(RoundedCornerShape(50)).padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.GraphicEq, null, tint = PM.Gold, modifier = Modifier.size(14.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("EQ $name", style = MaterialTheme.typography.labelMedium)
+                        Row(
+                            Modifier.clip(RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.GraphicEq, null, tint = PM.Gold, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(eqName?.let { "EQ $it" } ?: "EQ desligado", style = MaterialTheme.typography.labelMedium)
+                        }
+                        Row(
+                            Modifier.clip(RoundedCornerShape(50))
+                                .background(if (sleep != SleepTimer.Off) PM.Gold.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.08f))
+                                .clickable { showSleep = true }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.Bedtime, "Timer de soneca", tint = if (sleep != SleepTimer.Off) PM.Gold else PM.Text, modifier = Modifier.size(16.dp))
+                            if (sleep != SleepTimer.Off) {
+                                Spacer(Modifier.width(6.dp))
+                                Text(sleepLabel(sleep), style = MaterialTheme.typography.labelMedium, color = PM.Gold)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { showQueue = true }) {
+                        Icon(Icons.AutoMirrored.Filled.QueueMusic, "Fila", tint = PM.Silver)
                     }
                 }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { showQueue = true }) {
-                    Icon(Icons.AutoMirrored.Filled.QueueMusic, "Fila", tint = PM.Silver)
-                }
-            }
-
             }
         }
 
@@ -575,7 +603,7 @@ private fun QueueRow(
             .padding(start = PM.s4, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Cover(m.mediaMetadata.artworkUri, Modifier.size(44.dp), RoundedCornerShape(4.dp), seed = m.mediaMetadata.albumTitle?.toString() ?: "")
+        Cover(m.mediaMetadata.artworkUri, Modifier.size(44.dp), RoundedCornerShape(8.dp), seed = m.mediaMetadata.albumTitle?.toString() ?: "")
         Spacer(Modifier.width(PM.s3))
         Column(Modifier.weight(1f)) {
             Text(m.titleText, color = if (isNow) PM.Gold else PM.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
@@ -624,15 +652,16 @@ private fun SleepDialog(vm: AppViewModel, current: SleepTimer, onDismiss: () -> 
 }
 
 
-/** Barra de progresso fina, no estilo dos players de streaming: toque ou arraste para pular. */
+/** Barra de progresso grossa e arredondada: toque ou arraste para pular; engrossa enquanto arrasta. */
 @Composable
 private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onRelease: () -> Unit, modifier: Modifier = Modifier) {
     var width by remember { mutableFloatStateOf(1f) }
     var dragging by remember { mutableStateOf(false) }
+    val h by androidx.compose.animation.core.animateDpAsState(if (dragging) 14.dp else 8.dp, label = "barra")
     Box(
         modifier
             .fillMaxWidth()
-            .height(24.dp)
+            .height(28.dp)
             .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
             .pointerInput(Unit) {
                 detectTapGestures(onPress = { o ->
@@ -650,19 +679,11 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onRelease: () -> U
             },
         contentAlignment = Alignment.CenterStart,
     ) {
-        val h = if (dragging) 6.dp else 4.dp
-        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(50)).background(PM.Silver.copy(alpha = 0.3f)))
-        Box(Modifier.fillMaxWidth(fraction).height(h).clip(RoundedCornerShape(50)).background(PM.Gold))
-        Box(
-            Modifier
-                .fillMaxWidth(fraction)
-                .wrapContentWidth(Alignment.End),
-        ) {
-            Box(Modifier.offset(x = 6.dp).size(if (dragging) 16.dp else 12.dp).clip(CircleShape).background(PM.Text))
+        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.22f))) {
+            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().clip(RoundedCornerShape(50)).background(PM.Text))
         }
     }
 }
-
 
 /** Mini aba de vidro com a linha da letra que está sendo cantada agora. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
@@ -752,7 +773,7 @@ private fun BlurredBackdrop(uri: android.net.Uri?, fallback: Color) {
 }
 
 /** Faz a parte de baixo da imagem desaparecer aos poucos (transparência real, sem emenda de cor). */
-private fun Modifier.fadeBottom(solidUntil: Float = 0.5f): Modifier =
+internal fun Modifier.fadeBottom(solidUntil: Float = 0.5f): Modifier =
     this
         .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
         .drawWithContent {
