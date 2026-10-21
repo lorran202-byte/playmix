@@ -147,4 +147,43 @@ class CoreTests {
         assertEquals(-200L, bd.alignCorrectionMs(60_100L, out, 5_500L, inc))
         assertEquals(0L, bd.alignCorrectionMs(60_000L, out, 5_200L, inc))
     }
+
+    // ---------- tom musical ----------
+
+    private fun chords(freqs: List<List<Double>>, secondsEach: Double, total: Int, sr: Int = 22050): FloatArray {
+        val out = FloatArray(sr * total)
+        for (i in out.indices) {
+            val t = i.toDouble() / sr
+            val chord = freqs[((t / secondsEach).toInt()) % freqs.size]
+            var v = 0.0
+            for (f in chord) {
+                v += Math.sin(2 * Math.PI * f * t) + 0.3 * Math.sin(2 * Math.PI * 2 * f * t)
+            }
+            out[i] = (v * 0.15).toFloat()
+        }
+        return out
+    }
+
+    private fun hz(midi: Int) = 440.0 * Math.pow(2.0, (midi - 69) / 12.0)
+
+    @Test
+    fun detectsMajorKey() {
+        // C – F – G – C (dó maior), notas em várias oitavas
+        val c = listOf(hz(60), hz(64), hz(67), hz(48))
+        val f = listOf(hz(65), hz(69), hz(72), hz(53))
+        val g = listOf(hz(67), hz(71), hz(74), hz(55))
+        val key = com.lorranamorim.playmix.playback.KeyDetect.detect(chords(listOf(c, f, g, c), 1.0, 20), 22050)
+        assertEquals("tom detectado: ${com.lorranamorim.playmix.playback.KeyDetect.name(key)}", 0, key)
+    }
+
+    @Test
+    fun camelotCompatibility() {
+        val kd = com.lorranamorim.playmix.playback.KeyDetect
+        assertEquals(8 to false, kd.camelot(0)) // C = 8B
+        assertEquals(8 to true, kd.camelot(21)) // Am = 8A
+        assertTrue(kd.compatible(0, 7)) // C e G (vizinhos)
+        assertTrue(kd.compatible(0, 21)) // C e Am (relativos)
+        assertTrue(!kd.compatible(0, 6)) // C e F# (opostos)
+        assertTrue(kd.compatible(-1, 6)) // desconhecido não bloqueia
+    }
 }

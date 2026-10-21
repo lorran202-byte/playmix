@@ -238,7 +238,11 @@ class PlaybackService : MediaSessionService() {
             // curva de potência constante: o volume total não "afunda" no meio
             player.volume = kotlin.math.sin(t * Math.PI / 2).toFloat()
             tailPlayer.volume = kotlin.math.cos(t * Math.PI / 2).toFloat()
-            bassSwap(t)
+            when (activeKind) {
+                Kind.CUT -> bassSwap((t * 2f).coerceAtMost(1f))
+                Kind.FILTER -> filterSweep(t)
+                else -> bassSwap(t)
+            }
             alignBeats(t)
             if (t >= 1f) endCrossfade()
             return
@@ -262,17 +266,98 @@ class PlaybackService : MediaSessionService() {
             return
         }
 
-        val c = cross.coerceAtMost((end - bounds.startMs) / 3)
-        val triggerAt = end - c
+        val tr = planTransition(pos, bounds, end, cross)
+        val triggerAt = tr.triggerAt
         // ajuste de batida: nos 4 s antes da transição, a música que sai vai chegando
         // ao andamento da próxima (em 4 degraus, sem mudar o tom)
-        val plan = beatPlan()
+        val plan = tr.plan
         val ramp = (((pos - (triggerAt - 4_000)).toDouble() / 4_000).coerceIn(0.0, 1.0) * 4).toInt() / 4.0
         setSpeed(if (plan == null || pos < triggerAt - 4_000) 1.0 else 1.0 + (plan.speed - 1.0) * ramp)
 
         if (xState == XState.IDLE && pos >= triggerAt - 4_000 && pos < triggerAt) prepareTail(triggerAt)
         if (xState == XState.PREPARED && preparedIndex != player.currentMediaItemIndex) resetPrepared()
-        if (pos >= triggerAt && pos < end + 1_000) startCrossfade(c)
+        if (pos >= triggerAt && pos < end + 1_000) startCrossfade(tr)
+    }
+
+    // ---------- planejamento da transição, como um DJ ----------
+    private enum class Kind { BLEND, MIX, CUT, FILTER }
+    private class Transition(
+        val index: Int, val mediaId: String, val nextId: String, val kind: Kind, val triggerAt: Long,
+        val crossMs: Long, val nextStart: Long, val plan: BeatPlan?, val frozen: Boolean,
+    )
+    private var planned: Transition? = null
+    private var activeKind = Kind.BLEND
+
+    /**
+     * Decide como e quando passar para a próxima:
+     * - MIX: andamentos parecidos e tons que combinam → mistura longa (8/16/32 batidas) começando numa frase
+     * - CUT: andamentos parecidos mas tons que brigam → passagem rápida de 4 batidas
+     * - FILTER: andamentos muito diferentes → a que sai vai sendo "abafada" por um filtro
+     * - BLEND: sem análise ainda → crossfade simples
+     * O plano congela nos últimos segundos para não mudar no meio do caminho.
+     */
+    private fun planTransition(pos: Long, bounds: AudioBounds, end: Long, crossSetting: Long): Transition {
+        val idx = player.currentMediaItemIndex
+        val curId = player.currentMediaItem?.mediaId ?: ""
+        planned?.let { if (it.index == idx && it.mediaId == curId && it.frozen &&
+                (player.nextMediaItemIndex != C.INDEX_UNSET && player.getMediaItemAt(player.nextMediaItemIndex).mediaId == it.nextId)
+            ) return it }
+        planned = null
+
+        val nextIdx = player.nextMediaItemIndex
+        val nextId = if (nextIdx == C.INDEX_UNSET) "" else player.getMediaItemAt(nextIdx).mediaId
+        val nextDefault = analyzer.cached(nextId)?.startMs ?: 0L
+        val maxCross = ((end - bounds.startMs) / 3).coerceAtLeast(1_000L)
+        val out = beats.cached(curId)?.tail
+        val inc = beats.cached(nextId)?.head
+        val speed = if (store.data.value.settings.beatMatch && out != null && inc != null) BeatDetect.speedFor(out.bpm, inc.bpm) else null
+
+        val tr: Transition
+        if (speed != null && out != null && inc != null) {
+            val keyOk = KeyDetect.compatible(out.key, inc.key)
+            val pIn = 60_000.0 / BeatDetect.normalize(inc.bpm)
+            val pOut = 60_000.0 / BeatDetect.normalize(out.bpm)
+            val wanted = crossSetting / pIn
+            val nBeats = if (!keyOk) 4 else listOf(8, 16, 32).minBy { kotlin.math.abs(it - wanted) }
+            val crossMs = (nBeats * pIn).toLong().coerceAtMost(maxCross)
+            val lastStart = end - (crossMs * speed).toLong()
+            val phraseLen = 16 * pOut
+            var trigger = (out.phraseMs + kotlin.math.floor((lastStart - out.phraseMs) / phraseLen) * phraseLen).toLong()
+            if (trigger < bounds.startMs + 30_000 || trigger > lastStart) {
+                // sem frase boa: pelo menos começa numa batida
+                trigger = (out.beatMs + kotlin.math.floor((lastStart - out.beatMs) / pOut) * pOut).toLong()
+            }
+            // a que entra começa no início de uma frase dela (ou na primeira batida)
+            var nextStart = inc.phraseMs
+            if (nextStart < nextDefault - 100 || nextStart - nextDefault > 8 * pIn) {
+                nextStart = (inc.beatMs + kotlin.math.ceil((nextDefault - inc.beatMs) / pIn) * pIn).toLong()
+            }
+            tr = Transition(
+                idx, curId, nextId, if (keyOk) Kind.MIX else Kind.CUT, trigger, crossMs, nextStart.coerceAtLeast(0L),
+                BeatPlan(speed, out, inc), frozen = pos >= trigger - 5_000,
+            )
+        } else {
+            val crossMs = crossSetting.coerceAtMost(maxCross)
+            val kind = if (out != null && inc != null) Kind.FILTER else Kind.BLEND
+            tr = Transition(idx, curId, nextId, kind, end - crossMs, crossMs, nextDefault, null, frozen = pos >= end - crossMs - 5_000)
+        }
+        planned = tr
+        return tr
+    }
+
+    /** Filtro: a música que sai perde grave e agudo aos poucos, como se fosse se afastando. */
+    private fun filterSweep(t: Float) {
+        val eq = tailEq ?: return
+        runCatching {
+            val min = eq.bandLevelRange[0].toInt().coerceAtLeast(-1500)
+            val cut = (min * t).toInt()
+            for (b in 0 until eq.numberOfBands) {
+                val band = b.toShort()
+                val hz = eq.getCenterFreq(band) / 1000
+                if (hz < 400 || hz > 3_000) eq.setBandLevel(band, cut.toShort())
+            }
+            eq.enabled = true
+        }
     }
 
     /** Deixa o fim da música atual pronto no segundo player, sem tocar ainda. */
@@ -287,12 +372,13 @@ class PlaybackService : MediaSessionService() {
         xState = XState.PREPARED
     }
 
-    private fun startCrossfade(c: Long) {
+    private fun startCrossfade(tr: Transition) {
+        val c = tr.crossMs
         val pos = player.currentPosition
         if (xState != XState.PREPARED) prepareTail(pos)
         // o segundo player continua a música que está saindo do ponto exato
         if (kotlin.math.abs(tailPlayer.currentPosition - pos) > 120) tailPlayer.seekTo(pos)
-        val plan = beatPlan()
+        val plan = tr.plan
         tailPlayer.playbackParameters = PlaybackParameters((plan?.speed ?: 1.0).toFloat())
         tailPlayer.volume = 1f
         tailPlayer.play()
@@ -301,13 +387,16 @@ class PlaybackService : MediaSessionService() {
         // o player principal já vai para a próxima, começando depois do silêncio inicial
         val nextIdx = player.nextMediaItemIndex
         val nextItem = player.getMediaItemAt(nextIdx)
-        val nextStart = analyzer.cached(nextItem.mediaId)?.startMs ?: 0L
+        // se a fila mudou depois do plano, usa só o corte de silêncio da música nova
+        val nextStart = if (nextItem.mediaId == tr.nextId) tr.nextStart else (analyzer.cached(nextItem.mediaId)?.startMs ?: 0L)
         player.volume = 0f
         setSpeed(1.0) // a que entra toca no andamento original dela
         selfSeek = true
         player.seekTo(nextIdx, nextStart)
 
         activePlan = plan
+        activeKind = tr.kind
+        planned = null
         needAlign = plan != null
         alignTries = 0
         lastAlignAt = System.currentTimeMillis()
