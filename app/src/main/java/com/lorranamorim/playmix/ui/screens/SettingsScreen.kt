@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material.icons.filled.Refresh
@@ -109,6 +110,27 @@ fun SettingsScreen(vm: AppViewModel, nav: Nav, bottomSpace: Dp) {
                 }
                 Switch(
                     checked = data.settings.autoEq, onCheckedChange = { on -> vm.updateSettings { s -> s.copy(autoEq = on) } },
+                    colors = SwitchDefaults.colors(checkedThumbColor = PM.Black, checkedTrackColor = PM.Gold),
+                )
+            }
+        }
+        item {
+            Row(
+                Modifier.fillMaxWidth().clickable { vm.updateSettings { s -> s.copy(beatMatch = !s.beatMatch) } }
+                    .padding(horizontal = PM.s4, vertical = PM.s3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Speed, null, tint = PM.Gold)
+                Spacer(Modifier.width(PM.s4))
+                Column(Modifier.weight(1f)) {
+                    Text("Ajuste de batida", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "No crossfade, deixa as duas músicas no mesmo ritmo e encaixa as batidas, como um DJ. Só age quando os andamentos são parecidos.",
+                        style = MaterialTheme.typography.bodyMedium, color = PM.TextDim,
+                    )
+                }
+                Switch(
+                    checked = data.settings.beatMatch, onCheckedChange = { on -> vm.updateSettings { s -> s.copy(beatMatch = on) } },
                     colors = SwitchDefaults.colors(checkedThumbColor = PM.Black, checkedTrackColor = PM.Gold),
                 )
             }

@@ -98,4 +98,53 @@ class CoreTests {
         assertEquals(listOf("Diego e Arnaldo"), split("Diego e Arnaldo"))
         assertEquals(listOf("Alok", "Zeeba"), split("Alok x Zeeba"))
     }
+
+    // ---------- batidas ----------
+
+    /** Áudio de teste: "bumbos" curtos (seno grave com decaimento) num andamento fixo, com um chiado de fundo. */
+    private fun clicks(bpm: Double, seconds: Int, firstBeatMs: Long, sr: Int = 44100): FloatArray {
+        val out = FloatArray(sr * seconds)
+        val rnd = java.util.Random(7)
+        for (i in out.indices) out[i] = (rnd.nextGaussian() * 0.01).toFloat()
+        val period = 60.0 / bpm
+        var t = firstBeatMs / 1000.0
+        while (t < seconds) {
+            val start = (t * sr).toInt()
+            for (j in 0 until (sr * 0.08).toInt()) {
+                val idx = start + j
+                if (idx >= out.size) break
+                val env = Math.exp(-j / (sr * 0.02))
+                out[idx] += (0.8 * env * Math.sin(2 * Math.PI * 60.0 * j / sr)).toFloat()
+            }
+            t += period
+        }
+        return out
+    }
+
+    @Test
+    fun detectsTempoAndBeatPosition() {
+        for ((bpm, first) in listOf(128.0 to 230L, 95.0 to 410L, 140.0 to 90L, 110.0 to 600L)) {
+            val info = com.lorranamorim.playmix.playback.BeatDetect.detect(clicks(bpm, 20, first), 44100, 10_000L)
+            assertTrue("não detectou $bpm", info != null)
+            info!!
+            assertEquals("bpm de $bpm", bpm, com.lorranamorim.playmix.playback.BeatDetect.normalize(info.bpm), 1.5)
+            // a batida encontrada tem que cair numa batida real (com 25 ms de tolerância)
+            val period = 60_000.0 / bpm
+            val off = ((info.beatMs - 10_000L - first) % period + period) % period
+            assertTrue("fase de $bpm errada: $off ms", off < 25 || off > period - 25)
+        }
+    }
+
+    @Test
+    fun beatmatchSpeedAndAlignment() {
+        val bd = com.lorranamorim.playmix.playback.BeatDetect
+        assertEquals(1.0 + 4.0 / 124.0, bd.speedFor(124.0, 128.0)!!, 0.001)
+        assertEquals(1.0, bd.speedFor(64.0, 128.0)!!, 0.001) // meio tempo é o mesmo pulso
+        assertTrue(bd.speedFor(100.0, 128.0) == null) // diferença grande demais
+        val out = com.lorranamorim.playmix.playback.BeatInfo(120.0, 1000L, 2.0) // batidas a cada 500 ms
+        val inc = com.lorranamorim.playmix.playback.BeatInfo(120.0, 200L, 2.0)
+        // a que sai está 100 ms depois de uma batida; a que entra, 300 ms depois: precisa voltar 200 ms
+        assertEquals(-200L, bd.alignCorrectionMs(60_100L, out, 5_500L, inc))
+        assertEquals(0L, bd.alignCorrectionMs(60_000L, out, 5_200L, inc))
+    }
 }

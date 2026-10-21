@@ -8,6 +8,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
@@ -43,6 +44,14 @@ class PlaybackService : MediaSessionService() {
     private var crossMs = 0L
     private var selfSeek = false
 
+    // ---------- ajuste de batida ----------
+    private lateinit var beats: BeatAnalyzer
+    private class BeatPlan(val speed: Double, val out: BeatInfo, val inc: BeatInfo)
+    private var activePlan: BeatPlan? = null
+    private var needAlign = false
+    private var alignTries = 0
+    private var lastAlignAt = 0L
+
     private val fadeTick = object : Runnable {
         override fun run() {
             runCatching { crossfadeTick() }
@@ -70,6 +79,7 @@ class PlaybackService : MediaSessionService() {
         container.eq.attach(player.audioSessionId)
 
         analyzer = SilenceAnalyzer(this)
+        beats = BeatAnalyzer(this)
         tailPlayer = ExoPlayer.Builder(this)
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
@@ -205,11 +215,17 @@ class PlaybackService : MediaSessionService() {
         listOf(idx, player.nextMediaItemIndex).filter { it in 0 until player.mediaItemCount }.forEach { i ->
             val item = player.getMediaItemAt(i)
             val id = item.mediaId
-            if (analyzer.cached(id) != null) return@forEach
+            if (analyzer.cached(id) != null && beats.cached(id) != null) return@forEach
             val uri = uriForId(id) ?: return@forEach
             val dur = item.mediaMetadata.extras?.getLong(EXTRA_DURATION) ?: 0L
             if (dur <= 0) return@forEach
-            runCatching { analysisPool.execute { analyzer.analyze(id, uri, dur) } }
+            runCatching {
+                analysisPool.execute {
+                    val bounds = analyzer.analyze(id, uri, dur)
+                    // depois dos silêncios, o andamento e as batidas do começo e do fim
+                    beats.analyze(id, uri, bounds)
+                }
+            }
         }
     }
 
@@ -223,6 +239,7 @@ class PlaybackService : MediaSessionService() {
             player.volume = kotlin.math.sin(t * Math.PI / 2).toFloat()
             tailPlayer.volume = kotlin.math.cos(t * Math.PI / 2).toFloat()
             bassSwap(t)
+            alignBeats(t)
             if (t >= 1f) endCrossfade()
             return
         }
@@ -247,6 +264,12 @@ class PlaybackService : MediaSessionService() {
 
         val c = cross.coerceAtMost((end - bounds.startMs) / 3)
         val triggerAt = end - c
+        // ajuste de batida: nos 4 s antes da transição, a música que sai vai chegando
+        // ao andamento da próxima (em 4 degraus, sem mudar o tom)
+        val plan = beatPlan()
+        val ramp = (((pos - (triggerAt - 4_000)).toDouble() / 4_000).coerceIn(0.0, 1.0) * 4).toInt() / 4.0
+        setSpeed(if (plan == null || pos < triggerAt - 4_000) 1.0 else 1.0 + (plan.speed - 1.0) * ramp)
+
         if (xState == XState.IDLE && pos >= triggerAt - 4_000 && pos < triggerAt) prepareTail(triggerAt)
         if (xState == XState.PREPARED && preparedIndex != player.currentMediaItemIndex) resetPrepared()
         if (pos >= triggerAt && pos < end + 1_000) startCrossfade(c)
@@ -269,6 +292,8 @@ class PlaybackService : MediaSessionService() {
         if (xState != XState.PREPARED) prepareTail(pos)
         // o segundo player continua a música que está saindo do ponto exato
         if (kotlin.math.abs(tailPlayer.currentPosition - pos) > 120) tailPlayer.seekTo(pos)
+        val plan = beatPlan()
+        tailPlayer.playbackParameters = PlaybackParameters((plan?.speed ?: 1.0).toFloat())
         tailPlayer.volume = 1f
         tailPlayer.play()
         resetBass()
@@ -278,9 +303,14 @@ class PlaybackService : MediaSessionService() {
         val nextItem = player.getMediaItemAt(nextIdx)
         val nextStart = analyzer.cached(nextItem.mediaId)?.startMs ?: 0L
         player.volume = 0f
+        setSpeed(1.0) // a que entra toca no andamento original dela
         selfSeek = true
         player.seekTo(nextIdx, nextStart)
 
+        activePlan = plan
+        needAlign = plan != null
+        alignTries = 0
+        lastAlignAt = System.currentTimeMillis()
         crossStart = System.currentTimeMillis()
         crossMs = c
         xState = XState.CROSSING
@@ -296,6 +326,9 @@ class PlaybackService : MediaSessionService() {
 
     private fun endCrossfade() {
         tailPlayer.stop()
+        tailPlayer.playbackParameters = PlaybackParameters.DEFAULT
+        activePlan = null
+        needAlign = false
         tailPlayer.volume = 0f
         player.volume = 1f
         resetBass()
@@ -304,11 +337,48 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun resetPrepared() {
+        if (xState != XState.CROSSING) setSpeed(1.0)
         if (xState == XState.PREPARED) {
             tailPlayer.stop()
             xState = XState.IDLE
             preparedIndex = -1
         }
+    }
+
+    /** Plano de ajuste de batida entre a música atual e a próxima (null = andamentos incompatíveis ou sem análise). */
+    private fun beatPlan(): BeatPlan? {
+        if (!store.data.value.settings.beatMatch) return null
+        val curId = player.currentMediaItem?.mediaId ?: return null
+        val nextIdx = player.nextMediaItemIndex
+        if (nextIdx == C.INDEX_UNSET) return null
+        val out = beats.cached(curId)?.tail ?: return null
+        val inc = beats.cached(player.getMediaItemAt(nextIdx).mediaId)?.head ?: return null
+        val speed = BeatDetect.speedFor(out.bpm, inc.bpm) ?: return null
+        return BeatPlan(speed, out, inc)
+    }
+
+    private fun setSpeed(speed: Double) {
+        val f = speed.toFloat()
+        if (kotlin.math.abs(player.playbackParameters.speed - f) > 0.0005f) {
+            player.playbackParameters = PlaybackParameters(f)
+        }
+    }
+
+    /**
+     * Encaixa as batidas: no começo da transição (a que entra ainda está baixinha),
+     * mede a diferença entre as batidas das duas e corrige a posição da que entra.
+     */
+    private fun alignBeats(t: Float) {
+        val plan = activePlan ?: return
+        if (!needAlign) return
+        val now = System.currentTimeMillis()
+        if (t > 0.4f || alignTries >= 3) { needAlign = false; return }
+        if (!player.isPlaying || !tailPlayer.isPlaying || now - lastAlignAt < 250) return
+        val corr = BeatDetect.alignCorrectionMs(tailPlayer.currentPosition, plan.out, player.currentPosition, plan.inc)
+        alignTries++
+        lastAlignAt = now
+        if (kotlin.math.abs(corr) <= 12) { needAlign = false; return }
+        player.seekTo((player.currentPosition + corr).coerceAtLeast(0L))
     }
 
     /** Troca de grave: a música que sai vai perdendo o grave, para não embolar com a que entra. */
