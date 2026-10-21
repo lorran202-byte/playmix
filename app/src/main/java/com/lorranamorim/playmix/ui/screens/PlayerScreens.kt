@@ -98,6 +98,17 @@ import com.lorranamorim.playmix.ui.components.rememberCoverColor
 import com.lorranamorim.playmix.ui.theme.PM
 import com.lorranamorim.playmix.ui.theme.glass
 import kotlinx.coroutines.delay
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.Lyrics
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -134,7 +145,7 @@ fun MiniPlayer(vm: AppViewModel, onExpand: () -> Unit) {
             .padding(horizontal = PM.s2)
             .fillMaxWidth()
             .height(60.dp)
-            .glass(RoundedCornerShape(10.dp), tint = tint)
+            .glass(RoundedCornerShape(12.dp), tint = tint)
             .clickable(onClick = onExpand)
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
@@ -200,6 +211,7 @@ fun NowPlayingScreen(
     BackHandler(enabled = showLyrics) { showLyrics = false }
 
     val screenH = LocalConfiguration.current.screenHeightDp.dp
+    val coverHaze = remember { HazeState() }
     val eqName by vm.eqPreset.collectAsStateWithLifecycle()
 
     Box(
@@ -215,7 +227,7 @@ fun NowPlayingScreen(
             Box(Modifier.fillMaxWidth().height(screenH * 0.5f)) {
                 Cover(
                     item.mediaMetadata.artworkUri,
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxSize().haze(coverHaze),
                     RectangleShape,
                     seed = item.mediaMetadata.albumTitle?.toString() ?: "",
                 )
@@ -247,6 +259,13 @@ fun NowPlayingScreen(
                         Icon(Icons.Filled.MoreVert, "Mais opções", tint = PM.Text)
                     }
                 }
+
+                // mini aba da letra, logo acima do nome da música
+                LyricsPill(
+                    lyrics, pos, coverHaze,
+                    onClick = { showLyrics = true },
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = PM.s4, end = PM.s4, bottom = 88.dp),
+                )
 
                 // título + curtir, sobre o degradê
                 Row(
@@ -652,6 +671,58 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onRelease: () -> U
                 .wrapContentWidth(Alignment.End),
         ) {
             Box(Modifier.offset(x = 6.dp).size(if (dragging) 16.dp else 12.dp).clip(CircleShape).background(PM.Text))
+        }
+    }
+}
+
+
+/** Mini aba de vidro com a linha da letra que está sendo cantada agora. */
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+private fun LyricsPill(state: LyricsState, pos: Long, haze: HazeState, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val text: String? = when (state) {
+        LyricsState.Idle, LyricsState.NotFound -> null
+        LyricsState.Loading -> "Buscando letra…"
+        is LyricsState.Ready -> {
+            val l = state.lyrics
+            if (l.isSynced) {
+                val cur = currentLineIndex(l.synced, pos)
+                if (cur < 0) "♪" else l.synced[cur].text.ifBlank { "♪" }
+            } else {
+                l.plain?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Ver letra"
+            }
+        }
+    }
+    if (text == null) return
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier
+            .clip(shape)
+            .hazeChild(haze, style = HazeMaterials.thin(Color.Black))
+            .border(
+                1.dp,
+                Brush.linearGradient(listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.05f), PM.Gold.copy(alpha = 0.35f))),
+                shape,
+            )
+            .clickable(enabled = state is LyricsState.Ready, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Lyrics, null, tint = PM.Gold, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        AnimatedContent(
+            targetState = text,
+            transitionSpec = {
+                (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut())
+            },
+            label = "letra",
+        ) { line ->
+            Text(
+                line,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

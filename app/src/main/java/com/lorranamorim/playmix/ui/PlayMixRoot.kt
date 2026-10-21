@@ -63,6 +63,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.RectangleShape
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import com.lorranamorim.playmix.data.ContextType
 import com.lorranamorim.playmix.data.PlayContext
 import com.lorranamorim.playmix.data.Track
@@ -142,10 +149,12 @@ private fun PermissionScreen(onAsk: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun MainScaffold(vm: AppViewModel) {
     val nav = rememberNavController()
     val player by vm.player.collectAsStateWithLifecycle()
+    val hazeState = remember { HazeState() }
     var expanded by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf<Pair<Track, String?>?>(null) }
 
@@ -164,7 +173,7 @@ private fun MainScaffold(vm: AppViewModel) {
         val hasPlayer = player.current != null
         val bottomSpace = if (hasPlayer) 140.dp else 76.dp
 
-        NavHost(nav, startDestination = "home", modifier = Modifier.fillMaxSize()) {
+        NavHost(nav, startDestination = "home", modifier = Modifier.fillMaxSize().haze(hazeState)) {
             composable("home") { HomeScreen(vm, actions, bottomSpace) }
             composable("search") { SearchScreen(vm, actions, bottomSpace) }
             composable("library") { LibraryScreen(vm, actions, bottomSpace) }
@@ -179,13 +188,15 @@ private fun MainScaffold(vm: AppViewModel) {
             }
         }
 
-        // degradê para o conteúdo sumir atrás da barra
-        Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(bottomSpace + 40.dp)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, PM.Bg.copy(alpha = 0.92f), PM.Bg))),
-        )
 
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()) {
+        // liquid glass: mini player e barra de abas desfocam o que passa por trás
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .hazeChild(hazeState, style = HazeMaterials.ultraThin(PM.Bg))
+                .border(width = 0.5.dp, brush = Brush.horizontalGradient(listOf(Color.Transparent, Color.White.copy(alpha = 0.25f), Color.Transparent)), shape = RectangleShape)
+                .navigationBarsPadding()
+                .padding(top = 6.dp),
+        ) {
             if (hasPlayer) {
                 MiniPlayer(vm, onExpand = { expanded = true })
             }

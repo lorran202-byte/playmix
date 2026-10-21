@@ -87,12 +87,12 @@ fun Modifier.glass(shape: Shape = RoundedCornerShape(16.dp), tint: Color = PM.Su
     this
         .clip(shape)
         .background(
-            Brush.verticalGradient(listOf(tint.copy(alpha = 0.88f), tint.copy(alpha = 0.72f))),
+            Brush.verticalGradient(listOf(tint.copy(alpha = 0.42f), tint.copy(alpha = 0.28f))),
             shape,
         )
         .border(
             width = 1.dp,
-            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.22f), Color.White.copy(alpha = 0.03f), PM.Gold.copy(alpha = 0.18f))),
+            brush = Brush.linearGradient(listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.04f), PM.Silver.copy(alpha = 0.10f), PM.Gold.copy(alpha = 0.25f))),
             shape = shape,
         )
 
