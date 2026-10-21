@@ -62,6 +62,7 @@ import com.lorranamorim.playmix.ui.components.GlassPill
 import com.lorranamorim.playmix.ui.components.GlassRim
 import com.lorranamorim.playmix.ui.components.frost
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
