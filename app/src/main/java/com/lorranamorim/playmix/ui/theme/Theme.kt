@@ -28,9 +28,10 @@ object PM {
     val GoldLight = Color(0xFFF2D27A)
     val GoldDeep = Color(0xFF8C6E1C)
     val Silver = Color(0xFFC0C0C8)
+    val SilverLight = Color(0xFFE3E3EA)
     val Text = Color(0xFFF5F5F7)
-    val TextDim = Color(0xFFA7A7AD) // contraste ~8:1 sobre o fundo
-    val Divider = Color(0x22FFFFFF)
+    val TextDim = Color(0xFFB4B4BF) // prata: textos e ícones secundários (contraste ~9:1)
+    val Divider = Color(0x33C0C0C8)
 
     // espaçamento em múltiplos de 4
     val s1 = 4.dp

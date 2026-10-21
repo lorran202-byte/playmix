@@ -332,10 +332,10 @@ fun NowPlayingScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { vm.playerConn.toggleShuffle() }) {
-                    Icon(Icons.Filled.Shuffle, "Aleatório", tint = if (player.shuffle) PM.Gold else PM.Text, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Filled.Shuffle, "Aleatório", tint = if (player.shuffle) PM.Gold else PM.Silver, modifier = Modifier.size(28.dp))
                 }
                 IconButton(onClick = { vm.playerConn.previous() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Icons.Filled.SkipPrevious, "Anterior", tint = PM.Text, modifier = Modifier.size(46.dp))
+                    Icon(Icons.Filled.SkipPrevious, "Anterior", tint = PM.SilverLight, modifier = Modifier.size(46.dp))
                 }
                 Box(
                     Modifier.size(80.dp).clip(CircleShape).background(PM.Text).clickable { vm.playerConn.togglePlay() },
@@ -347,12 +347,12 @@ fun NowPlayingScreen(
                     )
                 }
                 IconButton(onClick = { vm.playerConn.next() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Icons.Filled.SkipNext, "Próxima", tint = PM.Text, modifier = Modifier.size(46.dp))
+                    Icon(Icons.Filled.SkipNext, "Próxima", tint = PM.SilverLight, modifier = Modifier.size(46.dp))
                 }
                 IconButton(onClick = { vm.playerConn.cycleRepeat() }) {
                     Icon(
                         if (player.repeatMode == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                        "Repetir", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) PM.Gold else PM.Text, modifier = Modifier.size(28.dp),
+                        "Repetir", tint = if (player.repeatMode != Player.REPEAT_MODE_OFF) PM.Gold else PM.Silver, modifier = Modifier.size(28.dp),
                     )
                 }
             }
@@ -383,7 +383,7 @@ fun NowPlayingScreen(
                 }
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { showQueue = true }) {
-                    Icon(Icons.AutoMirrored.Filled.QueueMusic, "Fila", tint = PM.Text)
+                    Icon(Icons.AutoMirrored.Filled.QueueMusic, "Fila", tint = PM.Silver)
                 }
             }
 
@@ -651,7 +651,7 @@ private fun SeekBar(fraction: Float, onDrag: (Float) -> Unit, onRelease: () -> U
         contentAlignment = Alignment.CenterStart,
     ) {
         val h = if (dragging) 6.dp else 4.dp
-        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f)))
+        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(50)).background(PM.Silver.copy(alpha = 0.3f)))
         Box(Modifier.fillMaxWidth(fraction).height(h).clip(RoundedCornerShape(50)).background(PM.Gold))
         Box(
             Modifier

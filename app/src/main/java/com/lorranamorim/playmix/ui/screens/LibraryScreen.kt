@@ -209,7 +209,7 @@ fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .background(if (selected) PM.Gold else PM.SurfaceHigh, RoundedCornerShape(50))
-            .border(1.dp, if (selected) PM.Gold else PM.Divider, RoundedCornerShape(50))
+            .border(1.dp, if (selected) PM.Gold else PM.Silver.copy(alpha = 0.35f), RoundedCornerShape(50))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
     ) {
